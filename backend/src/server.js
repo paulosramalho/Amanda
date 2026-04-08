@@ -10,6 +10,7 @@ import {
   runAdsCollectionJob,
 } from "./jobs/adsCollectionJob.js";
 import { getAdsSchedulerState, startAdsScheduler, stopAdsScheduler } from "./jobs/adsScheduler.js";
+import { getGoogleAdsAuthRuntimeDebug } from "./jobs/ads/providers/googleAds.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -70,6 +71,7 @@ app.get("/business-date", (_req, res) => {
 
 app.get("/jobs/ads-collection/config", (_req, res) => {
   const scheduler = getAdsSchedulerState();
+  const googleAuthDebug = getGoogleAdsAuthRuntimeDebug();
 
   res.status(200).json({
     ok: true,
@@ -79,6 +81,7 @@ app.get("/jobs/ads-collection/config", (_req, res) => {
       googleAdsEnabled: String(process.env.GOOGLE_ADS_ENABLED || "false"),
       metaAdsEnabled: String(process.env.META_ADS_ENABLED || "false"),
     },
+    googleAuthDebug,
   });
 });
 

@@ -270,3 +270,28 @@ export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
     campaigns,
   };
 }
+
+export function getGoogleAdsAuthRuntimeDebug() {
+  const oauthConfig = getGoogleOauthRefreshConfig();
+  const staticAccessToken = normalizeSecret(process.env.GOOGLE_ADS_ACCESS_TOKEN);
+  const customerId = normalizeCustomerId(process.env.GOOGLE_ADS_CUSTOMER_ID);
+  const loginCustomerId = normalizeCustomerId(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const apiVersion = normalizeSecret(process.env.GOOGLE_ADS_API_VERSION) || "v22";
+
+  return {
+    mode: hasCompleteRefreshConfig(oauthConfig)
+      ? "refresh_token"
+      : staticAccessToken
+        ? "static_access_token"
+        : "none",
+    staticAccessTokenPresent: Boolean(staticAccessToken),
+    staticAccessTokenPrefix: staticAccessToken ? staticAccessToken.slice(0, 4) : null,
+    clientIdPresent: Boolean(oauthConfig.clientId),
+    clientSecretPresent: Boolean(oauthConfig.clientSecret),
+    refreshTokenPresent: Boolean(oauthConfig.refreshToken),
+    refreshTokenPrefix: oauthConfig.refreshToken ? oauthConfig.refreshToken.slice(0, 3) : null,
+    customerId: customerId || null,
+    loginCustomerId: loginCustomerId || null,
+    apiVersion,
+  };
+}
