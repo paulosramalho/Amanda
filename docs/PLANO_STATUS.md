@@ -47,3 +47,5 @@ Sempre atualizar este documento com:
 - Commit Passo 2/3 (Prisma + modelo base): `2c9312f`.
 - Validacao em producao (08/04/2026): `/health` ok, `/health/db` com `db: reachable`, `/business-date` retornando `UTC-3 T12:00:00`.
 - Frontend Vercel publicado (confirmado pelo deploy do projeto).
+- Commit Passo 4 (coleta automatica Ads): 34c8522.
+- Validacao em producao (08/04/2026): /jobs/ads-collection/config ok, POST /jobs/ads-collection/run ok (execucao de teste), /jobs/ads-collection/recent ok, /campaigns/daily ok.
