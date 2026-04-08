@@ -88,7 +88,7 @@ app.get("/jobs/ads-collection/config", (_req, res) => {
   });
 });
 
-app.get("/jobs/ads-collection/google-auth-check", async (req, res) => {
+async function handleGoogleAuthCheck(req, res) {
   if (!isJobRunnerAuthorized(req)) {
     res.status(401).json({
       ok: false,
@@ -109,7 +109,10 @@ app.get("/jobs/ads-collection/google-auth-check", async (req, res) => {
       message: error instanceof Error ? error.message : "unknown error",
     });
   }
-});
+}
+
+app.get("/jobs/ads-collection/google-auth-check", handleGoogleAuthCheck);
+app.post("/jobs/ads-collection/google-auth-check", handleGoogleAuthCheck);
 
 app.post("/jobs/ads-collection/run", async (req, res) => {
   if (!isJobRunnerAuthorized(req)) {
