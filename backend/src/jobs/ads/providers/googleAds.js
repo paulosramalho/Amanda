@@ -142,6 +142,34 @@ function truncateText(value, limit = 300) {
   return String(value ?? "").slice(0, limit);
 }
 
+function parseGoogleAdsErrorBody(errorBody) {
+  let payload = null;
+
+  try {
+    payload = JSON.parse(String(errorBody || "{}"));
+  } catch {
+    payload = null;
+  }
+
+  const details = Array.isArray(payload?.error?.details) ? payload.error.details : [];
+  const googleAdsFailure = details.find((item) => Array.isArray(item?.errors));
+  const errors = Array.isArray(googleAdsFailure?.errors) ? googleAdsFailure.errors : [];
+
+  return {
+    code: payload?.error?.code ?? null,
+    status: payload?.error?.status ?? null,
+    message: payload?.error?.message ?? null,
+    errors: errors.map((item) => ({
+      message: item?.message ?? null,
+      trigger: item?.trigger?.stringValue ?? null,
+      authenticationError: item?.errorCode?.authenticationError ?? null,
+      authorizationError: item?.errorCode?.authorizationError ?? null,
+      requestError: item?.errorCode?.requestError ?? null,
+      headerError: item?.errorCode?.headerError ?? null,
+    })),
+  };
+}
+
 function parseAccessibleCustomerIds(resourceNames = []) {
   const parsed = (resourceNames || [])
     .map((resourceName) => String(resourceName || "").trim())
@@ -209,10 +237,15 @@ async function fetchAccessibleCustomers({ accessToken, developerToken, loginCust
 
   if (!response.ok) {
     const errorBody = await response.text();
+    const parsedError = parseGoogleAdsErrorBody(errorBody);
+
     return {
       ok: false,
       status: response.status,
-      error: truncateText(errorBody, 500),
+      error: truncateText(errorBody, 2000),
+      parsedError,
+      endpoint,
+      usedLoginCustomerId: Boolean(loginCustomerId),
     };
   }
 
