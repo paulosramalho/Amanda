@@ -477,6 +477,20 @@ export async function probeGoogleAdsAuthentication() {
     };
   }
 
+  try {
+    diagnostics.checks.accessibleCustomersWithoutLoginHeader = await fetchAccessibleCustomers({
+      accessToken,
+      developerToken,
+      loginCustomerId: "",
+      version: apiVersion,
+    });
+  } catch (error) {
+    diagnostics.checks.accessibleCustomersWithoutLoginHeader = {
+      ok: false,
+      error: buildProbeError(error),
+    };
+  }
+
   const listedCustomers = diagnostics.checks.accessibleCustomers?.customerIds || [];
   diagnostics.checks.customerMatch = {
     configuredCustomerId: customerId || null,
