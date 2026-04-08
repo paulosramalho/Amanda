@@ -46,7 +46,7 @@ export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
     };
   }
 
-  const version = process.env.GOOGLE_ADS_API_VERSION || "v18";
+  const version = process.env.GOOGLE_ADS_API_VERSION || "v22";
   const endpoint = `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:searchStream`;
 
   const query = `
