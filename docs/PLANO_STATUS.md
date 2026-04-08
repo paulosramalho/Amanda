@@ -44,3 +44,4 @@ Sempre atualizar este documento com:
 - Estrutura Prisma e migration inicial criadas em `backend/prisma/`.
 - Backend com verificador de DB: `GET /health/db`.
 - Padrao de data de negocio implementado: `GET /business-date` retorna `YYYY-MM-DDT12:00:00-03:00`.
+- Commit Passo 2/3 (Prisma + modelo base): 2c9312f.
