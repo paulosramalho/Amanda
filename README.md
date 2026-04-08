@@ -25,6 +25,11 @@ MVP para monitoramento de Google Ads, Meta Ads e Instagram Ads.
 - Scheduler interno: `backend/src/jobs/adsScheduler.js`
 - Registro de execucao em `jobs_execucao`
 - Persistencia diaria em `campanhas_diarias`
+- Google Ads OAuth recomendado:
+  - `GOOGLE_ADS_CLIENT_ID`
+  - `GOOGLE_ADS_CLIENT_SECRET`
+  - `GOOGLE_ADS_REFRESH_TOKEN`
+  - o backend gera `access_token` automaticamente em runtime
 
 ## Deploy backend (Render)
 - Root Directory: `backend`

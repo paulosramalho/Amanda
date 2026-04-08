@@ -1,4 +1,11 @@
 const GOOGLE_PLATFORM = "GOOGLE_ADS";
+const GOOGLE_OAUTH_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
+const OAUTH_TOKEN_REFRESH_SAFETY_MARGIN_SECONDS = 60;
+
+const accessTokenCache = {
+  token: "",
+  expiresAtMs: 0,
+};
 
 function toBoolean(value, defaultValue = false) {
   if (value === undefined) {
@@ -65,11 +72,70 @@ function validateAccessTokenFormat(accessToken) {
     );
   }
 
-  if (!accessToken.startsWith("ya29.")) {
+  if (/\s/.test(accessToken) || accessToken.length < 20) {
     throw new Error(
-      "GOOGLE_ADS_ACCESS_TOKEN format is unexpected. Expected a raw OAuth access token (usually starts with ya29.).",
+      "GOOGLE_ADS_ACCESS_TOKEN format is unexpected. Expected only the raw OAuth access token.",
     );
   }
+}
+
+function getGoogleOauthRefreshConfig() {
+  return {
+    clientId: normalizeSecret(process.env.GOOGLE_ADS_CLIENT_ID),
+    clientSecret: normalizeSecret(process.env.GOOGLE_ADS_CLIENT_SECRET),
+    refreshToken: normalizeSecret(process.env.GOOGLE_ADS_REFRESH_TOKEN),
+    tokenUrl: normalizeSecret(process.env.GOOGLE_ADS_TOKEN_URL) || GOOGLE_OAUTH_TOKEN_ENDPOINT,
+  };
+}
+
+function hasAnyRefreshConfig(oauthConfig) {
+  return Boolean(oauthConfig.clientId || oauthConfig.clientSecret || oauthConfig.refreshToken);
+}
+
+function hasCompleteRefreshConfig(oauthConfig) {
+  return Boolean(oauthConfig.clientId && oauthConfig.clientSecret && oauthConfig.refreshToken);
+}
+
+async function fetchAccessTokenFromRefreshToken(oauthConfig) {
+  const now = Date.now();
+  if (accessTokenCache.token && accessTokenCache.expiresAtMs > now) {
+    return accessTokenCache.token;
+  }
+
+  const response = await fetch(oauthConfig.tokenUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      client_id: oauthConfig.clientId,
+      client_secret: oauthConfig.clientSecret,
+      refresh_token: oauthConfig.refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(
+      `Google OAuth refresh failed (${response.status}): ${errorBody.slice(0, 300)}`,
+    );
+  }
+
+  const payload = await response.json();
+  const accessToken = normalizeSecret(payload.access_token);
+  if (!accessToken) {
+    throw new Error("Google OAuth refresh succeeded but did not return access_token.");
+  }
+
+  const expiresInSeconds = Number(payload.expires_in || 3600);
+  const cacheDurationMs =
+    Math.max(60, expiresInSeconds - OAUTH_TOKEN_REFRESH_SAFETY_MARGIN_SECONDS) * 1000;
+
+  accessTokenCache.token = accessToken;
+  accessTokenCache.expiresAtMs = now + cacheDurationMs;
+
+  return accessToken;
 }
 
 export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
@@ -87,16 +153,43 @@ export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
   }
 
   const developerToken = normalizeSecret(process.env.GOOGLE_ADS_DEVELOPER_TOKEN);
-  const accessToken = normalizeSecret(process.env.GOOGLE_ADS_ACCESS_TOKEN);
+  const staticAccessToken = normalizeSecret(process.env.GOOGLE_ADS_ACCESS_TOKEN);
+  const oauthConfig = getGoogleOauthRefreshConfig();
   const customerId = configuredCustomerId;
   const loginCustomerId = normalizeCustomerId(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID);
 
-  if (!developerToken || !accessToken || !customerId) {
+  if (!developerToken || !customerId) {
     return {
       provider: GOOGLE_PLATFORM,
       status: "skipped",
       reason:
-        "Missing GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_ACCESS_TOKEN or GOOGLE_ADS_CUSTOMER_ID",
+        "Missing GOOGLE_ADS_DEVELOPER_TOKEN or GOOGLE_ADS_CUSTOMER_ID",
+      accountId: customerId || null,
+      campaigns: [],
+    };
+  }
+
+  if (hasAnyRefreshConfig(oauthConfig) && !hasCompleteRefreshConfig(oauthConfig)) {
+    return {
+      provider: GOOGLE_PLATFORM,
+      status: "skipped",
+      reason:
+        "Incomplete refresh config. Set GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET and GOOGLE_ADS_REFRESH_TOKEN together.",
+      accountId: customerId || null,
+      campaigns: [],
+    };
+  }
+
+  const accessToken = hasCompleteRefreshConfig(oauthConfig)
+    ? await fetchAccessTokenFromRefreshToken(oauthConfig)
+    : staticAccessToken;
+
+  if (!accessToken) {
+    return {
+      provider: GOOGLE_PLATFORM,
+      status: "skipped",
+      reason:
+        "Missing Google OAuth credential. Set GOOGLE_ADS_ACCESS_TOKEN or provide GOOGLE_ADS_CLIENT_ID + GOOGLE_ADS_CLIENT_SECRET + GOOGLE_ADS_REFRESH_TOKEN.",
       accountId: customerId || null,
       campaigns: [],
     };
