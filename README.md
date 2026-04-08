@@ -12,6 +12,19 @@ MVP para monitoramento de Google Ads, Meta Ads e Instagram Ads.
 - `GET /health`
 - `GET /health/db`
 - `GET /business-date`
+- `GET /jobs/ads-collection/config`
+- `POST /jobs/ads-collection/run`
+- `GET /jobs/ads-collection/recent`
+- `GET /campaigns/daily`
+
+## Coleta automatica Ads
+- Providers implementados:
+  - Google Ads (`backend/src/jobs/ads/providers/googleAds.js`)
+  - Meta Ads / Instagram Ads (`backend/src/jobs/ads/providers/metaAds.js`)
+- Job central: `backend/src/jobs/adsCollectionJob.js`
+- Scheduler interno: `backend/src/jobs/adsScheduler.js`
+- Registro de execucao em `jobs_execucao`
+- Persistencia diaria em `campanhas_diarias`
 
 ## Deploy backend (Render)
 - Root Directory: `backend`
