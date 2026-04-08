@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadSource {
+  GOOGLE_ADS
+  META_ADS
+  INSTAGRAM_ADS
+  ORGANIC
+  REFERRAL
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  WON
+  LOST
+  ARCHIVED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model Lead {
+  id                 String    @id @default(cuid())
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  businessDate       DateTime  @map("business_date")
+  name               String?
+  email              String?
+  phone              String?
+  companyName        String?   @map("company_name")
+  source             LeadSource @default(OTHER)
+  campaignName       String?   @map("campaign_name")
+  status             LeadStatus @default(NEW)
+  notes              String?
+  monthlyFeePotential Decimal? @db.Decimal(12, 2) @map("monthly_fee_potential")
+  convertedAt        DateTime? @map("converted_at")
+
+  @@index([businessDate])
+  @@index([source, status])
+  @@map("leads")
+}
+
+model CampaignDaily {
+  id             String    @id @default(cuid())
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  businessDate   DateTime  @map("business_date")
+  platform       String
+  accountId      String?   @map("account_id")
+  campaignId     String?   @map("campaign_id")
+  campaignName   String?   @map("campaign_name")
+  spend          Decimal   @default(0) @db.Decimal(12, 2)
+  impressions    Int       @default(0)
+  clicks         Int       @default(0)
+  leads          Int       @default(0)
+  qualifiedLeads Int       @default(0) @map("qualified_leads")
+  cpl            Decimal?  @db.Decimal(12, 2)
+  cpc            Decimal?  @db.Decimal(12, 2)
+  ctr            Decimal?  @db.Decimal(8, 4)
+  conversionRate Decimal?  @db.Decimal(8, 4) @map("conversion_rate")
+  rawPayload     Json?     @map("raw_payload")
+
+  @@index([businessDate, platform])
+  @@unique([businessDate, platform, campaignId], map: "campanhas_diarias_data_plataforma_campanha_uk")
+  @@map("campanhas_diarias")
+}
+
+model WeeklyReport {
+  id                String    @id @default(cuid())
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  weekStartDate     DateTime  @map("week_start_date")
+  weekEndDate       DateTime  @map("week_end_date")
+  generatedAt       DateTime  @default(now()) @map("generated_at")
+  scope             String    @default("global")
+  whatWorked        String    @map("what_worked")
+  whatToPause       String    @map("what_to_pause")
+  whereToScale      String    @map("where_to_scale")
+  recommendations   Json?     @map("recommendations")
+
+  @@unique([weekStartDate, weekEndDate, scope], map: "relatorios_semanais_competencia_scope_uk")
+  @@index([weekStartDate, weekEndDate])
+  @@map("relatorios_semanais")
+}
+
+model JobExecution {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  jobName      String    @map("job_name")
+  scheduledFor DateTime? @map("scheduled_for")
+  startedAt    DateTime? @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  status       JobStatus @default(PENDING)
+  attempt      Int       @default(0)
+  details      Json?
+  errorMessage String?   @map("error_message")
+
+  @@index([jobName, status, createdAt])
+  @@map("jobs_execucao")
+}

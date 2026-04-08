@@ -1,4 +1,4 @@
-﻿# Plano de Implantacao e Status - Amanda Ads App
+# Plano de Implantacao e Status - Amanda Ads App
 
 Atualizado em: 08/04/2026
 Escopo: Google Ads, Meta Ads e Instagram Ads para Amanda Ramalho Advogados.
@@ -21,13 +21,13 @@ Atrair leads qualificados para conversao em clientes de fee mensal, com foco em 
 ## Status por passo (controle executivo)
 | Passo | Status | Pronto em | O que ja esta pronto | O que falta | Previsao |
 |---|---|---|---|---|---|
-| 1. Fundacao tecnica | Concluido | 07/04/2026 | Repo `paulosramalho/Amanda` inicializado (commit `b773382`), backend Express ativo, deploy Render validado com `GET /health` retornando `ok: true`. | Nada deste passo. | Concluido |
-| 2. Banco e Prisma | Pendente | - | `DATABASE_URL` ja configurado no Render (informado). | Adicionar Prisma no backend, schema inicial, migration, generate e deploy com migration automatica. | 08/04/2026 |
-| 3. Modelo de dados | Pendente | - | Estrutura minima do backend pronta para receber rotas. | Definir e criar tabelas: leads, campanhas_diarias, relatorios_semanais, jobs_execucao. | 08/04/2026 |
+| 1. Fundacao tecnica | Concluido | 07/04/2026 | Repo `paulosramalho/Amanda` inicializado, backend Express ativo, deploy Render validado com `GET /health` retornando `ok: true`. | Nada deste passo. | Concluido |
+| 2. Banco e Prisma | Concluido (codigo) | 08/04/2026 | Prisma 6.17.1 integrado (`@prisma/client` + `prisma`), schema criado, migration versionada em `backend/prisma/migrations`, scripts `prisma:generate`, `prisma:migrate:deploy`, `prisma:migrate:dev` e `postinstall` configurados, `start` aplicando migration automaticamente. | Validar deploy no Render apos push (execucao real de migration no Neon). | Imediato apos push |
+| 3. Modelo de dados | Concluido (base) | 08/04/2026 | Modelos/tabelas implementados: `leads`, `campanhas_diarias`, `relatorios_semanais`, `jobs_execucao`; enums de status/fonte; indices e constraints iniciais. | Ajustes finos de colunas conforme integracao real dos canais de Ads. | 09/04/2026 |
 | 4. Coleta automatica Ads | Pendente | - | Cron Job ja existente no Render. | Integrar APIs Google Ads e Meta Ads; gravar consolidado diario no banco. | 09/04/2026 |
-| 5. API de negocio | Pendente | - | Endpoints base (`/`, `/health`) prontos. | Criar endpoints de leads e dashboard com filtros por periodo/canal. | 09/04/2026 |
+| 5. API de negocio | Em andamento (base) | 08/04/2026 | Endpoints base prontos: `/`, `/health`, `/health/db`, `/business-date`. Regra de data de negocio aplicada no backend. | Criar endpoints de leads e dashboard com filtros por periodo/canal e agregacoes. | 09/04/2026 |
 | 6. Resumo semanal (agente) | Pendente | - | Escopo de resumo executivo definido. | Job semanal para gerar: o que funcionou, pausar, escalar. Persistir e disponibilizar via API. | 10/04/2026 |
-| 7. Frontend dedicado | Pendente | - | Vercel ja provisionado para o projeto. | Criar painel web e conectar no backend Render. | 10/04/2026 |
+| 7. Frontend dedicado | Pendente | - | Vercel provisionado para o projeto. | Criar painel web e conectar no backend Render. | 10/04/2026 |
 | 8. Alertas e governanca | Pendente | - | Regras macro ja definidas. | Alertas de CPL/queda de conversao/gasto sem lead + trilha de decisao. | 11/04/2026 |
 | 9. Go-live controlado | Pendente | - | Infra base pronta. | Checklist final, testes de ponta a ponta, rotina semanal operacional. | 11/04/2026 |
 
@@ -38,6 +38,9 @@ Sempre atualizar este documento com:
 3. O que falta do proximo passo.
 4. Previsao objetiva da proxima entrega.
 
-## Evidencias ja registradas
-- Commit inicial: `b773382`.
-- Deploy base Render validado com resposta de healthcheck em 08/04/2026.
+## Evidencias registradas
+- Commit inicial do projeto: `b773382`.
+- Deploy base Render validado com healthcheck em 08/04/2026.
+- Estrutura Prisma e migration inicial criadas em `backend/prisma/`.
+- Backend com verificador de DB: `GET /health/db`.
+- Padrao de data de negocio implementado: `GET /business-date` retorna `YYYY-MM-DDT12:00:00-03:00`.

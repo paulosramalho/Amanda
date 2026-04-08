@@ -1,19 +1,29 @@
-﻿# Amanda Ads App
+# Amanda Ads App
 
-MVP inicial para monitoramento de Google Ads, Meta Ads e Instagram Ads.
+MVP para monitoramento de Google Ads, Meta Ads e Instagram Ads.
 
 ## Estrutura
-- `backend/`: API Node.js (Express), pronta para deploy no Render.
+- `backend/`: API Node.js (Express + Prisma), pronta para deploy no Render.
 - `docs/PLANO_STATUS.md`: plano geral de implantacao e status por passo.
 
-## Endpoints iniciais
-- `GET /health`
+## Endpoints atuais
 - `GET /`
+- `GET /health`
+- `GET /health/db`
+- `GET /business-date`
 
 ## Deploy (Render)
 - Root Directory: `backend`
 - Build Command: `npm install`
 - Start Command: `npm run start`
+
+## Banco de dados (Neon + Prisma)
+- Prisma schema: `backend/prisma/schema.prisma`
+- Migration inicial: `backend/prisma/migrations/20260408023000_init/migration.sql`
+- Scripts:
+  - `npm run prisma:generate`
+  - `npm run prisma:migrate:dev`
+  - `npm run prisma:migrate:deploy`
 
 ## Variaveis de ambiente
 Use `backend/.env.example` como base.
