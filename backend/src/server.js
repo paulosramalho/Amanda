@@ -10,7 +10,10 @@ import {
   runAdsCollectionJob,
 } from "./jobs/adsCollectionJob.js";
 import { getAdsSchedulerState, startAdsScheduler, stopAdsScheduler } from "./jobs/adsScheduler.js";
-import { getGoogleAdsAuthRuntimeDebug } from "./jobs/ads/providers/googleAds.js";
+import {
+  getGoogleAdsAuthRuntimeDebug,
+  probeGoogleAdsAuthentication,
+} from "./jobs/ads/providers/googleAds.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -83,6 +86,29 @@ app.get("/jobs/ads-collection/config", (_req, res) => {
     },
     googleAuthDebug,
   });
+});
+
+app.get("/jobs/ads-collection/google-auth-check", async (req, res) => {
+  if (!isJobRunnerAuthorized(req)) {
+    res.status(401).json({
+      ok: false,
+      message: "Unauthorized diagnostics execution",
+    });
+    return;
+  }
+
+  try {
+    const diagnostics = await probeGoogleAdsAuthentication();
+    res.status(200).json({
+      ok: true,
+      diagnostics,
+    });
+  } catch (error) {
+    res.status(500).json({
+      ok: false,
+      message: error instanceof Error ? error.message : "unknown error",
+    });
+  }
 });
 
 app.post("/jobs/ads-collection/run", async (req, res) => {
@@ -164,6 +190,7 @@ app.get("/", (_req, res) => {
     businessDate: "/business-date",
     adsCollection: {
       config: "/jobs/ads-collection/config",
+      googleAuthCheck: "/jobs/ads-collection/google-auth-check",
       manualRun: "POST /jobs/ads-collection/run",
       recentJobs: "/jobs/ads-collection/recent",
       dailyData: "/campaigns/daily",

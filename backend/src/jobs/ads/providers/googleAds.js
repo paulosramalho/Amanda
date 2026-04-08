@@ -138,6 +138,95 @@ async function fetchAccessTokenFromRefreshToken(oauthConfig) {
   return accessToken;
 }
 
+function truncateText(value, limit = 300) {
+  return String(value ?? "").slice(0, limit);
+}
+
+function parseAccessibleCustomerIds(resourceNames = []) {
+  const parsed = (resourceNames || [])
+    .map((resourceName) => String(resourceName || "").trim())
+    .filter(Boolean)
+    .map((resourceName) => resourceName.replace(/^customers\//i, ""))
+    .map((customerId) => customerId.replace(/\D/g, ""))
+    .filter(Boolean);
+
+  return [...new Set(parsed)].sort();
+}
+
+function buildProbeError(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error || "unknown error");
+}
+
+async function inspectAccessToken(accessToken) {
+  const endpoint = `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`;
+  const response = await fetch(endpoint, { method: "GET" });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    return {
+      ok: false,
+      status: response.status,
+      error: truncateText(errorBody, 500),
+    };
+  }
+
+  const payload = await response.json();
+  const scopes = String(payload.scope || "")
+    .split(" ")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return {
+    ok: true,
+    status: response.status,
+    expiresInSeconds: toInteger(payload.expires_in),
+    audience: payload.aud || null,
+    authorizedParty: payload.azp || null,
+    hasAdwordsScope: scopes.includes("https://www.googleapis.com/auth/adwords"),
+    scopes,
+  };
+}
+
+async function fetchAccessibleCustomers({ accessToken, developerToken, loginCustomerId, version }) {
+  const endpoint = `https://googleads.googleapis.com/${version}/customers:listAccessibleCustomers`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    "developer-token": developerToken,
+  };
+
+  if (loginCustomerId) {
+    headers["login-customer-id"] = loginCustomerId;
+  }
+
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    return {
+      ok: false,
+      status: response.status,
+      error: truncateText(errorBody, 500),
+    };
+  }
+
+  const payload = await response.json();
+  const customerIds = parseAccessibleCustomerIds(payload.resourceNames || []);
+
+  return {
+    ok: true,
+    status: response.status,
+    customerIds,
+    count: customerIds.length,
+  };
+}
+
 export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
   const enabled = toBoolean(process.env.GOOGLE_ADS_ENABLED, false);
   const configuredCustomerId = normalizeCustomerId(process.env.GOOGLE_ADS_CUSTOMER_ID);
@@ -269,6 +358,134 @@ export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
     accountId: customerId,
     campaigns,
   };
+}
+
+export async function probeGoogleAdsAuthentication() {
+  const enabled = toBoolean(process.env.GOOGLE_ADS_ENABLED, false);
+  const developerToken = normalizeSecret(process.env.GOOGLE_ADS_DEVELOPER_TOKEN);
+  const staticAccessToken = normalizeSecret(process.env.GOOGLE_ADS_ACCESS_TOKEN);
+  const oauthConfig = getGoogleOauthRefreshConfig();
+  const customerId = normalizeCustomerId(process.env.GOOGLE_ADS_CUSTOMER_ID);
+  const loginCustomerId = normalizeCustomerId(process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID);
+  const apiVersion = normalizeSecret(process.env.GOOGLE_ADS_API_VERSION) || "v22";
+  const refreshMode = hasCompleteRefreshConfig(oauthConfig);
+  const hasPartialRefreshConfig = hasAnyRefreshConfig(oauthConfig) && !refreshMode;
+
+  const diagnostics = {
+    checkedAt: new Date().toISOString(),
+    enabled,
+    mode: refreshMode ? "refresh_token" : staticAccessToken ? "static_access_token" : "none",
+    apiVersion,
+    config: {
+      developerTokenPresent: Boolean(developerToken),
+      customerId: customerId || null,
+      loginCustomerId: loginCustomerId || null,
+      staticAccessTokenPresent: Boolean(staticAccessToken),
+      clientIdPresent: Boolean(oauthConfig.clientId),
+      clientSecretPresent: Boolean(oauthConfig.clientSecret),
+      refreshTokenPresent: Boolean(oauthConfig.refreshToken),
+    },
+    checks: {},
+  };
+
+  if (!enabled) {
+    diagnostics.checks.preflight = {
+      ok: false,
+      reason: "GOOGLE_ADS_ENABLED is false",
+    };
+    return diagnostics;
+  }
+
+  if (!developerToken) {
+    diagnostics.checks.preflight = {
+      ok: false,
+      reason: "Missing GOOGLE_ADS_DEVELOPER_TOKEN",
+    };
+    return diagnostics;
+  }
+
+  if (hasPartialRefreshConfig) {
+    diagnostics.checks.preflight = {
+      ok: false,
+      reason:
+        "Incomplete refresh config. Set GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET and GOOGLE_ADS_REFRESH_TOKEN together.",
+    };
+    return diagnostics;
+  }
+
+  let accessToken = "";
+  if (refreshMode) {
+    try {
+      accessToken = await fetchAccessTokenFromRefreshToken(oauthConfig);
+      diagnostics.checks.refresh = {
+        ok: true,
+        tokenLength: accessToken.length,
+      };
+    } catch (error) {
+      diagnostics.checks.refresh = {
+        ok: false,
+        error: buildProbeError(error),
+      };
+      return diagnostics;
+    }
+  } else if (staticAccessToken) {
+    accessToken = staticAccessToken;
+    diagnostics.checks.staticToken = {
+      ok: true,
+      tokenLength: accessToken.length,
+    };
+  } else {
+    diagnostics.checks.preflight = {
+      ok: false,
+      reason:
+        "Missing OAuth credential. Set GOOGLE_ADS_ACCESS_TOKEN or GOOGLE_ADS_CLIENT_ID + GOOGLE_ADS_CLIENT_SECRET + GOOGLE_ADS_REFRESH_TOKEN.",
+    };
+    return diagnostics;
+  }
+
+  try {
+    validateAccessTokenFormat(accessToken);
+    diagnostics.checks.tokenFormat = { ok: true };
+  } catch (error) {
+    diagnostics.checks.tokenFormat = {
+      ok: false,
+      error: buildProbeError(error),
+    };
+    return diagnostics;
+  }
+
+  try {
+    diagnostics.checks.tokenInfo = await inspectAccessToken(accessToken);
+  } catch (error) {
+    diagnostics.checks.tokenInfo = {
+      ok: false,
+      error: buildProbeError(error),
+    };
+  }
+
+  try {
+    diagnostics.checks.accessibleCustomers = await fetchAccessibleCustomers({
+      accessToken,
+      developerToken,
+      loginCustomerId,
+      version: apiVersion,
+    });
+  } catch (error) {
+    diagnostics.checks.accessibleCustomers = {
+      ok: false,
+      error: buildProbeError(error),
+    };
+  }
+
+  const listedCustomers = diagnostics.checks.accessibleCustomers?.customerIds || [];
+  diagnostics.checks.customerMatch = {
+    configuredCustomerId: customerId || null,
+    configuredLoginCustomerId: loginCustomerId || null,
+    configuredCustomerListed: customerId ? listedCustomers.includes(customerId) : null,
+    loginCustomerListed: loginCustomerId ? listedCustomers.includes(loginCustomerId) : null,
+  };
+
+  return diagnostics;
 }
 
 export function getGoogleAdsAuthRuntimeDebug() {
