@@ -48,6 +48,30 @@ function normalizeCustomerId(value) {
   return normalized.replace(/\D/g, "");
 }
 
+function validateAccessTokenFormat(accessToken) {
+  if (!accessToken) {
+    return;
+  }
+
+  if (accessToken.startsWith("{") || accessToken.includes("\"scope\"")) {
+    throw new Error(
+      "GOOGLE_ADS_ACCESS_TOKEN appears to be JSON. Paste only the raw access token string (example: starts with ya29.).",
+    );
+  }
+
+  if (accessToken.startsWith("1//")) {
+    throw new Error(
+      "GOOGLE_ADS_ACCESS_TOKEN appears to be a refresh token (starts with 1//). Paste the access token (starts with ya29.).",
+    );
+  }
+
+  if (!accessToken.startsWith("ya29.")) {
+    throw new Error(
+      "GOOGLE_ADS_ACCESS_TOKEN format is unexpected. Expected a raw OAuth access token (usually starts with ya29.).",
+    );
+  }
+}
+
 export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
   const enabled = toBoolean(process.env.GOOGLE_ADS_ENABLED, false);
   const configuredCustomerId = normalizeCustomerId(process.env.GOOGLE_ADS_CUSTOMER_ID);
@@ -77,6 +101,8 @@ export async function collectGoogleAdsCampaignMetrics({ dateOnly }) {
       campaigns: [],
     };
   }
+
+  validateAccessTokenFormat(accessToken);
 
   const version = normalizeSecret(process.env.GOOGLE_ADS_API_VERSION) || "v22";
   const endpoint = `https://googleads.googleapis.com/${version}/customers/${customerId}/googleAds:searchStream`;
