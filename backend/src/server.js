@@ -593,11 +593,7 @@ app.get("/dashboard/instagram-posts", async (req, res) => {
   }
 });
 
-app.post("/jobs/instagram-collection/run", async (req, res) => {
-  if (!isJobRunnerAuthorized(req)) {
-    res.status(401).json({ ok: false, message: "Unauthorized" });
-    return;
-  }
+app.post("/jobs/instagram-collection/run", requireAuth, async (req, res) => {
   try {
     const result = await runInstagramCollectionJob({ triggeredBy: "http" });
     res.json(result);
@@ -606,11 +602,7 @@ app.post("/jobs/instagram-collection/run", async (req, res) => {
   }
 });
 
-app.post("/jobs/post-analysis/run", async (req, res) => {
-  if (!isJobRunnerAuthorized(req)) {
-    res.status(401).json({ ok: false, message: "Unauthorized" });
-    return;
-  }
+app.post("/jobs/post-analysis/run", requireAuth, async (req, res) => {
   try {
     const forceReanalyze = req.body?.forceReanalyze === true;
     const result = await runPostAnalysisJob({ triggeredBy: "http", forceReanalyze });
