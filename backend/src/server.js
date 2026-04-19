@@ -9,6 +9,7 @@ import {
   listRecentAdsCollectionJobs,
   runAdsCollectionJob,
 } from "./jobs/adsCollectionJob.js";
+import { generateWeeklyReport, getLatestWeeklyReport } from "./jobs/weeklyReportJob.js";
 import { getAdsSchedulerState, startAdsScheduler, stopAdsScheduler } from "./jobs/adsScheduler.js";
 import {
   getGoogleAdsAuthRuntimeDebug,
@@ -349,6 +350,33 @@ app.get("/dashboard/campaigns", async (req, res) => {
   }
 });
 
+app.post("/jobs/weekly-report/run", async (req, res) => {
+  if (!isJobRunnerAuthorized(req)) {
+    res.status(401).json({ ok: false, message: "Unauthorized job execution" });
+    return;
+  }
+  try {
+    const force = req.body?.force === true;
+    const result = await generateWeeklyReport({ force });
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/dashboard/weekly-report", async (_req, res) => {
+  try {
+    const report = await getLatestWeeklyReport();
+    if (!report) {
+      res.json({ ok: true, report: null });
+      return;
+    }
+    res.json({ ok: true, report });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 app.get("/", (_req, res) => {
   res.json({
     name: "Amanda Ads Backend",
@@ -362,6 +390,10 @@ app.get("/", (_req, res) => {
       manualRun: "POST /jobs/ads-collection/run",
       recentJobs: "/jobs/ads-collection/recent",
       dailyData: "/campaigns/daily",
+    },
+    weeklyReport: {
+      run: "POST /jobs/weekly-report/run",
+      latest: "/dashboard/weekly-report",
     },
   });
 });

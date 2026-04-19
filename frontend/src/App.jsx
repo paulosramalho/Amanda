@@ -89,11 +89,65 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+function WeeklyReportSection({ report }) {
+  if (!report) return null;
+  const meta = report.recommendations?.summary || {};
+  const items = report.recommendations?.items || [];
+  const priorityColor = { alta: "#dc2626", média: "#d97706", info: "#2563eb" };
+
+  return (
+    <section className="weekly-report-section">
+      <h2 className="section-title">Relatório Semanal — {report.weekStartDate?.slice(0, 10).split("-").reverse().join("/")} a {report.weekEndDate?.slice(0, 10).split("-").reverse().join("/")}</h2>
+      <div className="wr-meta">
+        <span>Gasto: <strong>{brl(meta.spend ?? 0)}</strong></span>
+        <span>Leads: <strong>{meta.leads ?? 0}</strong></span>
+        <span>CPL: <strong>{meta.cpl != null ? brl(meta.cpl) : "—"}</strong></span>
+        {meta.spendChangePct != null && (
+          <span className={meta.spendChangePct > 0 ? "wr-up" : "wr-down"}>
+            Gasto {meta.spendChangePct > 0 ? "+" : ""}{meta.spendChangePct}% vs semana anterior
+          </span>
+        )}
+        {meta.leadsChangePct != null && (
+          <span className={meta.leadsChangePct > 0 ? "wr-up" : "wr-down"}>
+            Leads {meta.leadsChangePct > 0 ? "+" : ""}{meta.leadsChangePct}% vs semana anterior
+          </span>
+        )}
+      </div>
+      <div className="wr-grid">
+        <div className="wr-block">
+          <h3 className="wr-block-title wr-green">O que funcionou</h3>
+          <pre className="wr-text">{report.whatWorked || "—"}</pre>
+        </div>
+        <div className="wr-block">
+          <h3 className="wr-block-title wr-red">Pausar / revisar</h3>
+          <pre className="wr-text">{report.whatToPause || "—"}</pre>
+        </div>
+        <div className="wr-block">
+          <h3 className="wr-block-title wr-blue">Escalar</h3>
+          <pre className="wr-text">{report.whereToScale || "—"}</pre>
+        </div>
+      </div>
+      {items.length > 0 && (
+        <div className="wr-recs">
+          <h3 className="wr-block-title">Recomendações</h3>
+          {items.map((r, i) => (
+            <div key={i} className="wr-rec-item" style={{ borderLeftColor: priorityColor[r.priority] || "#94a3b8" }}>
+              <span className="wr-rec-priority" style={{ color: priorityColor[r.priority] || "#94a3b8" }}>{r.priority?.toUpperCase()}</span>
+              <span>{r.action}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function App() {
   const [days, setDays] = useState(30);
   const [summary, setSummary] = useState(null);
   const [series, setSeries] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
+  const [weeklyReport, setWeeklyReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -101,14 +155,16 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [s, dy, c] = await Promise.all([
+      const [s, dy, c, wr] = await Promise.all([
         fetch(`${API}/dashboard/summary?days=${d}`).then((r) => r.json()),
         fetch(`${API}/dashboard/daily?days=${d}`).then((r) => r.json()),
         fetch(`${API}/dashboard/campaigns?days=${d}`).then((r) => r.json()),
+        fetch(`${API}/dashboard/weekly-report`).then((r) => r.json()),
       ]);
       if (s.ok) setSummary(s);
       if (dy.ok) setSeries(dy.series || []);
       if (c.ok) setCampaigns(c.campaigns || []);
+      if (wr.ok) setWeeklyReport(wr.report);
     } catch (e) {
       setError("Falha ao carregar dados do backend.");
     } finally {
@@ -180,7 +236,7 @@ export default function App() {
               <ComposedChart data={series} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 12, fill: "#64748b" }} />
-                <YAxis yAxisId="spend" tickFormatter={(v) => `R$${v}`} tick={{ fontSize: 11, fill: "#64748b" }} width={72} />
+                <YAxis yAxisId="spend" tickFormatter={(v) => `R$${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} tick={{ fontSize: 11, fill: "#64748b" }} width={80} />
                 <YAxis yAxisId="leads" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} width={36} allowDecimals={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
@@ -234,6 +290,8 @@ export default function App() {
             </div>
           )}
         </section>
+
+        <WeeklyReportSection report={weeklyReport} />
       </main>
     </div>
   );
