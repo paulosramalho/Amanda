@@ -281,7 +281,7 @@ app.get("/dashboard/summary", async (req, res) => {
     }
 
     if (totals.leads === 0 && totals.spend > 0) {
-      alerts.push({ type: "no_leads", message: `Nenhum lead no período com R$ ${totals.spend.toFixed(2)} investidos` });
+      alerts.push({ type: "no_leads", message: `Nenhum lead no período com ${totals.spend.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} investidos` });
     }
 
     res.json({
