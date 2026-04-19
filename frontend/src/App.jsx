@@ -1,113 +1,240 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import {
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend
+} from "recharts";
 import "./App.css";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://amanda-api.onrender.com";
+const API = import.meta.env.VITE_API_BASE_URL || "https://amanda-api.onrender.com";
 
-const STATUS_MAP = {
-  loading: {
-    label: "Sincronizando infraestrutura",
-    className: "status-chip loading",
-  },
-  ok: {
-    label: "Ambiente operacional",
-    className: "status-chip ok",
-  },
-  error: {
-    label: "Atenção na integração",
-    className: "status-chip error",
-  },
-};
+const PERIODS = [
+  { label: "7 dias", value: 7 },
+  { label: "14 dias", value: 14 },
+  { label: "30 dias", value: 30 },
+];
 
-function App() {
-  const [status, setStatus] = useState("loading");
-  const [message, setMessage] = useState("Conectando ao backend para validar ambiente...");
+const PLATFORM_LABEL = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads" };
+const PLATFORM_COLOR = { GOOGLE_ADS: "#1d4ed8", META_ADS: "#7c3aed" };
 
-  useEffect(() => {
-    async function checkBackend() {
-      try {
-        const response = await fetch(`${API_BASE_URL}/health/db`);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+function brl(v) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v ?? 0);
+}
 
-        const payload = await response.json();
-        setStatus("ok");
-        setMessage(`Backend online | DB: ${payload.db} | Regra de data: ${payload.businessDateRule}`);
-      } catch (error) {
-        setStatus("error");
-        setMessage(`Falha ao validar backend (${error instanceof Error ? error.message : "erro desconhecido"}).`);
-      }
-    }
+function pct(v) {
+  if (v == null) return "—";
+  return `${((v) * 100).toFixed(2)}%`;
+}
 
-    void checkBackend();
-  }, []);
+function fmtDate(iso) {
+  if (!iso) return "";
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
 
-  const statusUi = useMemo(() => STATUS_MAP[status] || STATUS_MAP.loading, [status]);
+function fmtDatetime(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Belem", dateStyle: "short", timeStyle: "short" });
+}
 
+function KPICard({ label, value, sub, highlight }) {
   return (
-    <main className="entry-page">
-      <section className="entry-shell">
-        <header className="topbar">
-          <p className="brand">AMR Ads Control</p>
-          <span className={statusUi.className}>{statusUi.label}</span>
-        </header>
-
-        <div className="hero-grid">
-          <article className="hero-copy">
-            <p className="eyebrow">Painel de Entrada</p>
-            <h1>Advocacia empresarial orientada por dados de mídia.</h1>
-            <p className="subtitle">
-              Sistema dedicado para captação qualificada em São Paulo com rotina de monitoramento,
-              decisões semanais e execução disciplinada.
-            </p>
-
-            <div className="actions">
-              <button type="button" className="primary-btn">
-                Entrar no Sistema
-              </button>
-              <a className="secondary-link" href="#status-operacional">
-                Ver status técnico
-              </a>
-            </div>
-          </article>
-
-          <aside className="status-card" id="status-operacional">
-            <h2>Status Operacional</h2>
-            <p className="status-message">{message}</p>
-            <dl>
-              <div>
-                <dt>API Base</dt>
-                <dd>{API_BASE_URL}</dd>
-              </div>
-              <div>
-                <dt>Data de Negócio</dt>
-                <dd>UTC-3 T12:00:00</dd>
-              </div>
-              <div>
-                <dt>Foco do Projeto</dt>
-                <dd>Leads qualificados para fee mensal</dd>
-              </div>
-            </dl>
-          </aside>
-        </div>
-
-        <section className="quick-panels">
-          <article>
-            <h3>Escopo</h3>
-            <p>Google Ads, Meta Ads e Instagram Ads em operação unificada.</p>
-          </article>
-          <article>
-            <h3>Direção</h3>
-            <p>Resumo executivo semanal: manter, pausar e escalar com base em resultado.</p>
-          </article>
-          <article>
-            <h3>Disciplina</h3>
-            <p>Coleta diária automatizada com trilha de execução e dados auditáveis.</p>
-          </article>
-        </section>
-      </section>
-    </main>
+    <div className={`kpi-card${highlight ? " kpi-highlight" : ""}`}>
+      <span className="kpi-label">{label}</span>
+      <span className="kpi-value">{value}</span>
+      {sub && <span className="kpi-sub">{sub}</span>}
+    </div>
   );
 }
 
-export default App;
+function AlertBanner({ alerts }) {
+  if (!alerts?.length) return null;
+  return (
+    <div className="alert-banner">
+      {alerts.map((a, i) => (
+        <div key={i} className="alert-item">
+          <span className="alert-dot" /> {a.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PlatformCard({ platform, data }) {
+  return (
+    <div className="platform-card" style={{ borderTopColor: PLATFORM_COLOR[platform] }}>
+      <span className="platform-name" style={{ color: PLATFORM_COLOR[platform] }}>
+        {PLATFORM_LABEL[platform] || platform}
+      </span>
+      <div className="platform-stats">
+        <div><span>Gasto</span><strong>{brl(data.spend)}</strong></div>
+        <div><span>Leads</span><strong>{data.leads}</strong></div>
+        <div><span>CPL</span><strong>{data.cpl != null ? brl(data.cpl) : "—"}</strong></div>
+        <div><span>Cliques</span><strong>{data.clicks.toLocaleString("pt-BR")}</strong></div>
+      </div>
+    </div>
+  );
+}
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="chart-tooltip">
+      <p className="tooltip-date">{fmtDate(label)}</p>
+      {payload.map((p) => (
+        <p key={p.name} style={{ color: p.color }}>
+          {p.name}: {p.name === "Gasto" ? brl(p.value) : p.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+export default function App() {
+  const [days, setDays] = useState(30);
+  const [summary, setSummary] = useState(null);
+  const [series, setSeries] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async (d) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [s, dy, c] = await Promise.all([
+        fetch(`${API}/dashboard/summary?days=${d}`).then((r) => r.json()),
+        fetch(`${API}/dashboard/daily?days=${d}`).then((r) => r.json()),
+        fetch(`${API}/dashboard/campaigns?days=${d}`).then((r) => r.json()),
+      ]);
+      if (s.ok) setSummary(s);
+      if (dy.ok) setSeries(dy.series || []);
+      if (c.ok) setCampaigns(c.campaigns || []);
+    } catch (e) {
+      setError("Falha ao carregar dados do backend.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(days); }, [days, load]);
+
+  const t = summary?.totals;
+  const platforms = Object.entries(summary?.byPlatform || {});
+
+  return (
+    <div className="dashboard">
+      <header className="dash-header">
+        <div className="dash-brand">
+          <span className="brand-dot" />
+          AMR Ads Control
+        </div>
+        <div className="dash-controls">
+          <div className="period-tabs">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                className={`period-tab${days === p.value ? " active" : ""}`}
+                onClick={() => setDays(p.value)}
+                type="button"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {summary?.lastCollection && (
+            <span className="last-update">
+              Atualizado {fmtDatetime(summary.lastCollection)}
+            </span>
+          )}
+        </div>
+      </header>
+
+      <main className="dash-main">
+        {error && <div className="error-msg">{error}</div>}
+
+        <AlertBanner alerts={summary?.alerts} />
+
+        <section className="kpi-row">
+          <KPICard label="Gasto Total" value={loading ? "…" : brl(t?.spend)} sub={`${days} dias`} />
+          <KPICard label="Leads" value={loading ? "…" : (t?.leads ?? 0)} sub="conversões" highlight={t?.leads > 0} />
+          <KPICard label="CPL Médio" value={loading ? "…" : (t?.cpl != null ? brl(t.cpl) : "—")} sub="custo por lead" />
+          <KPICard label="Impressões" value={loading ? "…" : (t?.impressions ?? 0).toLocaleString("pt-BR")} sub="alcance" />
+          <KPICard label="CTR" value={loading ? "…" : pct(t?.ctr)} sub="taxa de clique" />
+          <KPICard label="Cliques" value={loading ? "…" : (t?.clicks ?? 0).toLocaleString("pt-BR")} sub="total" />
+        </section>
+
+        {platforms.length > 0 && (
+          <section className="platform-row">
+            {platforms.map(([plat, data]) => (
+              <PlatformCard key={plat} platform={plat} data={data} />
+            ))}
+          </section>
+        )}
+
+        <section className="chart-section">
+          <h2 className="section-title">Gasto e Leads — {days} dias</h2>
+          {series.length === 0 && !loading ? (
+            <div className="empty-chart">Sem dados para o período selecionado.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={series} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 12, fill: "#64748b" }} />
+                <YAxis yAxisId="spend" tickFormatter={(v) => `R$${v}`} tick={{ fontSize: 11, fill: "#64748b" }} width={72} />
+                <YAxis yAxisId="leads" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} width={36} allowDecimals={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar yAxisId="leads" dataKey="leads" name="Leads" fill="#10b981" opacity={0.85} radius={[3, 3, 0, 0]} />
+                <Line yAxisId="spend" dataKey="spend" name="Gasto" stroke="#ea580c" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </section>
+
+        <section className="table-section">
+          <h2 className="section-title">Campanhas — {days} dias</h2>
+          {campaigns.length === 0 && !loading ? (
+            <div className="empty-chart">Nenhuma campanha no período.</div>
+          ) : (
+            <div className="table-wrap">
+              <table className="camp-table">
+                <thead>
+                  <tr>
+                    <th>Campanha</th>
+                    <th>Canal</th>
+                    <th className="num">Gasto</th>
+                    <th className="num">Impressões</th>
+                    <th className="num">Cliques</th>
+                    <th className="num">CTR</th>
+                    <th className="num">Leads</th>
+                    <th className="num">CPL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {campaigns.map((c) => (
+                    <tr key={`${c.platform}-${c.campaignId}`}>
+                      <td className="camp-name">{c.campaignName || c.campaignId}</td>
+                      <td>
+                        <span className="plat-badge" style={{ background: PLATFORM_COLOR[c.platform] + "22", color: PLATFORM_COLOR[c.platform] }}>
+                          {PLATFORM_LABEL[c.platform] || c.platform}
+                        </span>
+                      </td>
+                      <td className="num">{brl(c.spend)}</td>
+                      <td className="num">{c.impressions.toLocaleString("pt-BR")}</td>
+                      <td className="num">{c.clicks.toLocaleString("pt-BR")}</td>
+                      <td className="num">{c.ctr != null ? `${c.ctr}%` : "—"}</td>
+                      <td className="num leads-cell">{c.leads}</td>
+                      <td className={`num ${c.cpl != null && c.cpl > 200 ? "cpl-high" : c.cpl != null ? "cpl-ok" : ""}`}>
+                        {c.cpl != null ? brl(c.cpl) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}

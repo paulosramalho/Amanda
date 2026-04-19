@@ -184,6 +184,171 @@ app.get("/campaigns/daily", async (req, res) => {
   }
 });
 
+function buildFromDate(days) {
+  const today = toBusinessDateAtNoon();
+  const from = new Date(today);
+  from.setUTCDate(from.getUTCDate() - (days - 1));
+  return from;
+}
+
+function safeNum(v) {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+app.get("/dashboard/summary", async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days || "30", 10) || 30, 1), 90);
+    const platform = req.query.platform ? String(req.query.platform).toUpperCase() : undefined;
+    const from = buildFromDate(days);
+
+    const where = { businessDate: { gte: from } };
+    if (platform) where.platform = platform;
+
+    const rows = await prisma.campaignDaily.findMany({ where });
+
+    const totals = { spend: 0, impressions: 0, clicks: 0, leads: 0 };
+    const byPlatform = {};
+
+    for (const row of rows) {
+      const spend = safeNum(row.spend);
+      totals.spend += spend;
+      totals.impressions += row.impressions;
+      totals.clicks += row.clicks;
+      totals.leads += row.leads;
+
+      if (!byPlatform[row.platform]) {
+        byPlatform[row.platform] = { spend: 0, impressions: 0, clicks: 0, leads: 0 };
+      }
+      byPlatform[row.platform].spend += spend;
+      byPlatform[row.platform].impressions += row.impressions;
+      byPlatform[row.platform].clicks += row.clicks;
+      byPlatform[row.platform].leads += row.leads;
+    }
+
+    totals.spend = parseFloat(totals.spend.toFixed(2));
+    totals.cpl = totals.leads > 0 ? parseFloat((totals.spend / totals.leads).toFixed(2)) : null;
+    totals.ctr = totals.impressions > 0 ? parseFloat((totals.clicks / totals.impressions).toFixed(4)) : null;
+    totals.conversionRate = totals.clicks > 0 ? parseFloat((totals.leads / totals.clicks).toFixed(4)) : null;
+
+    for (const plat of Object.keys(byPlatform)) {
+      const p = byPlatform[plat];
+      p.spend = parseFloat(p.spend.toFixed(2));
+      p.cpl = p.leads > 0 ? parseFloat((p.spend / p.leads).toFixed(2)) : null;
+      p.ctr = p.impressions > 0 ? parseFloat((p.clicks / p.impressions).toFixed(4)) : null;
+    }
+
+    const lastJob = await prisma.jobExecution.findFirst({
+      where: { jobName: "ads_collection_daily", status: "SUCCESS" },
+      orderBy: { createdAt: "desc" },
+      select: { finishedAt: true, details: true },
+    });
+
+    const alerts = [];
+    if (lastJob?.finishedAt) {
+      const hoursAgo = (Date.now() - new Date(lastJob.finishedAt).getTime()) / 3600000;
+      if (hoursAgo > 25) alerts.push({ type: "stale_data", message: `Última coleta há ${Math.round(hoursAgo)}h — dados podem estar desatualizados` });
+    } else {
+      alerts.push({ type: "no_collection", message: "Nenhuma coleta registrada ainda" });
+    }
+
+    if (totals.leads === 0 && totals.spend > 0) {
+      alerts.push({ type: "no_leads", message: `Nenhum lead no período com R$ ${totals.spend.toFixed(2)} investidos` });
+    }
+
+    res.json({
+      ok: true,
+      period: { days, from: from.toISOString().slice(0, 10) },
+      totals,
+      byPlatform,
+      alerts,
+      lastCollection: lastJob?.finishedAt || null,
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/dashboard/daily", async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days || "30", 10) || 30, 1), 90);
+    const platform = req.query.platform ? String(req.query.platform).toUpperCase() : undefined;
+    const from = buildFromDate(days);
+
+    const where = { businessDate: { gte: from } };
+    if (platform) where.platform = platform;
+
+    const rows = await prisma.campaignDaily.findMany({
+      where,
+      orderBy: { businessDate: "asc" },
+      select: { businessDate: true, platform: true, spend: true, impressions: true, clicks: true, leads: true },
+    });
+
+    const byDate = {};
+    for (const row of rows) {
+      const date = row.businessDate.toISOString().slice(0, 10);
+      if (!byDate[date]) byDate[date] = { date, spend: 0, impressions: 0, clicks: 0, leads: 0 };
+      byDate[date].spend += safeNum(row.spend);
+      byDate[date].impressions += row.impressions;
+      byDate[date].clicks += row.clicks;
+      byDate[date].leads += row.leads;
+    }
+
+    const series = Object.values(byDate).map((d) => ({
+      ...d,
+      spend: parseFloat(d.spend.toFixed(2)),
+    }));
+
+    res.json({ ok: true, series });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/dashboard/campaigns", async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days || "30", 10) || 30, 1), 90);
+    const platform = req.query.platform ? String(req.query.platform).toUpperCase() : undefined;
+    const from = buildFromDate(days);
+
+    const where = { businessDate: { gte: from } };
+    if (platform) where.platform = platform;
+
+    const rows = await prisma.campaignDaily.findMany({ where });
+
+    const byCampaign = {};
+    for (const row of rows) {
+      const key = `${row.platform}|${row.campaignId}`;
+      if (!byCampaign[key]) {
+        byCampaign[key] = {
+          platform: row.platform,
+          campaignId: row.campaignId,
+          campaignName: row.campaignName,
+          spend: 0, impressions: 0, clicks: 0, leads: 0,
+        };
+      }
+      byCampaign[key].spend += safeNum(row.spend);
+      byCampaign[key].impressions += row.impressions;
+      byCampaign[key].clicks += row.clicks;
+      byCampaign[key].leads += row.leads;
+    }
+
+    const campaigns = Object.values(byCampaign)
+      .map((c) => ({
+        ...c,
+        spend: parseFloat(c.spend.toFixed(2)),
+        cpl: c.leads > 0 ? parseFloat((c.spend / c.leads).toFixed(2)) : null,
+        ctr: c.impressions > 0 ? parseFloat((c.clicks / c.impressions * 100).toFixed(2)) : null,
+        conversionRate: c.clicks > 0 ? parseFloat((c.leads / c.clicks * 100).toFixed(2)) : null,
+      }))
+      .sort((a, b) => b.spend - a.spend);
+
+    res.json({ ok: true, campaigns });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 app.get("/", (_req, res) => {
   res.json({
     name: "Amanda Ads Backend",
