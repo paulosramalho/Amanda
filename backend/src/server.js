@@ -20,6 +20,8 @@ import {
 } from "./jobs/ads/providers/googleAds.js";
 import { runInstagramCollectionJob } from "./jobs/instagramCollectionJob.js";
 import { runPostAnalysisJob } from "./jobs/postAnalysisJob.js";
+import { startInstagramScheduler, stopInstagramScheduler, runInstagramCycle } from "./jobs/instagramScheduler.js";
+import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -612,9 +614,62 @@ app.post("/jobs/post-analysis/run", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/jobs/instagram-notify/test", requireAuth, async (req, res) => {
+  try {
+    const { prisma: db } = await import("./lib/prisma.js");
+
+    // Posts REMOVE reais
+    const removeReal = await db.postAnalysis.findMany({
+      where: { action: "REMOVE" },
+      include: { post: true },
+      orderBy: { score: "asc" },
+      take: 3,
+    });
+
+    // Posts INVEST reais (ou simula com o melhor post)
+    let investPosts = await db.postAnalysis.findMany({
+      where: { action: "INVEST" },
+      include: { post: true },
+      orderBy: { score: "desc" },
+      take: 3,
+    });
+
+    let simulated = false;
+    if (investPosts.length === 0) {
+      simulated = true;
+      const best = await db.postAnalysis.findFirst({
+        orderBy: { score: "desc" },
+        include: { post: true },
+      });
+      if (best) {
+        investPosts = [{
+          ...best,
+          action: "INVEST",
+          score: 8,
+          reasoning: "(SIMULADO) Post com maior engajamento do perfil — bom candidato para impulsionar com ads.",
+          simulated: true,
+        }];
+      }
+    }
+
+    const result = await sendInstagramAnalysisEmail({
+      investPosts: investPosts.map((p) => ({ post: p.post, analysis: p, simulated: p.simulated })),
+      removePosts: removeReal.map((p) => ({ post: p.post, analysis: p })),
+      tokenDaysUsed: getTokenDaysUsed(),
+      simulated,
+    });
+
+    res.json({ ok: true, simulated, ...result });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 const schedulerState = startAdsScheduler();
 console.log("Ads scheduler state:", schedulerState);
 startWeeklyReportScheduler();
+const igSchedulerState = startInstagramScheduler();
+console.log("Instagram scheduler state:", igSchedulerState);
 
 const server = app.listen(PORT, () => {
   console.log(`Amanda backend running on port ${PORT}`);
@@ -625,6 +680,7 @@ async function shutdown(signal) {
 
   stopAdsScheduler();
   stopWeeklyReportScheduler();
+  stopInstagramScheduler();
 
   server.close(async () => {
     await prisma.$disconnect();
