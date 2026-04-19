@@ -31,6 +31,16 @@ app.use(express.json());
 app.use("/dashboard", requireAuth);
 app.use("/leads", requireAuth);
 
+function requireSiteSecret(req, res, next) {
+  const secret = process.env.SITE_SECRET;
+  if (!secret) { next(); return; }
+  if (req.header("x-site-secret") !== secret) {
+    res.status(401).json({ ok: false, message: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
 function requireAuth(req, res, next) {
   const token = req.header("authorization")?.replace("Bearer ", "");
   if (!token) { res.status(401).json({ ok: false, message: "Token ausente" }); return; }
@@ -492,6 +502,35 @@ app.patch("/leads/:id", async (req, res) => {
       },
     });
     res.json({ ok: true, lead });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/api/site/lead", requireSiteSecret, async (req, res) => {
+  try {
+    const { nome, email, telefone, area, urgencia, mensagem } = req.body || {};
+    if (!nome && !email) return res.status(400).json({ ok: false, message: "Dados insuficientes" });
+
+    const notes = [
+      area ? `Área: ${area}` : null,
+      urgencia ? `Urgência: ${urgencia}` : null,
+      mensagem || null,
+    ].filter(Boolean).join("\n");
+
+    const lead = await prisma.lead.create({
+      data: {
+        businessDate: toBusinessDateAtNoon(),
+        name: nome || null,
+        email: email || null,
+        phone: telefone || null,
+        source: "OTHER",
+        campaignName: area || null,
+        notes: notes || null,
+      },
+    });
+
+    res.status(201).json({ ok: true, leadId: lead.id });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
   }
