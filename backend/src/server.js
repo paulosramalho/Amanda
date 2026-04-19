@@ -351,6 +351,124 @@ app.get("/dashboard/campaigns", async (req, res) => {
   }
 });
 
+app.get("/dashboard/weekly-reports", async (_req, res) => {
+  try {
+    const reports = await prisma.weeklyReport.findMany({
+      orderBy: { weekStartDate: "desc" },
+      take: 12,
+    });
+    res.json({ ok: true, reports });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/dashboard/monthly-goal", async (req, res) => {
+  try {
+    const month = req.query.month || new Date().toISOString().slice(0, 7);
+    const goal = await prisma.monthlyGoal.findUnique({ where: { month } });
+    res.json({ ok: true, goal: goal || null, month });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.put("/dashboard/monthly-goal", async (req, res) => {
+  try {
+    const { month, spendGoal, leadsGoal } = req.body || {};
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      res.status(400).json({ ok: false, message: "month must be YYYY-MM" });
+      return;
+    }
+    const goal = await prisma.monthlyGoal.upsert({
+      where: { month },
+      update: { spendGoal: spendGoal ?? null, leadsGoal: leadsGoal ?? null },
+      create: { month, spendGoal: spendGoal ?? null, leadsGoal: leadsGoal ?? null },
+    });
+    res.json({ ok: true, goal });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/dashboard/campaigns/:platform/:campaignId/daily", async (req, res) => {
+  try {
+    const { platform, campaignId } = req.params;
+    const days = Math.min(Math.max(parseInt(req.query.days || "30", 10) || 30, 1), 90);
+    const from = buildFromDate(days);
+
+    const rows = await prisma.campaignDaily.findMany({
+      where: { platform: platform.toUpperCase(), campaignId, businessDate: { gte: from } },
+      orderBy: { businessDate: "asc" },
+      select: { businessDate: true, spend: true, impressions: true, clicks: true, leads: true },
+    });
+
+    const series = rows.map((r) => ({
+      date: r.businessDate.toISOString().slice(0, 10),
+      spend: parseFloat(Number(r.spend).toFixed(2)),
+      impressions: r.impressions,
+      clicks: r.clicks,
+      leads: r.leads,
+    }));
+
+    res.json({ ok: true, series });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/leads", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || "50", 10), 200);
+    const leads = await prisma.lead.findMany({
+      orderBy: { businessDate: "desc" },
+      take: limit,
+    });
+    res.json({ ok: true, leads });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/leads", async (req, res) => {
+  try {
+    const { name, phone, email, companyName, source, campaignName, notes, monthlyFeePotential } = req.body || {};
+    const lead = await prisma.lead.create({
+      data: {
+        businessDate: toBusinessDateAtNoon(),
+        name: name || null,
+        phone: phone || null,
+        email: email || null,
+        companyName: companyName || null,
+        source: source || "OTHER",
+        campaignName: campaignName || null,
+        notes: notes || null,
+        monthlyFeePotential: monthlyFeePotential ? parseFloat(monthlyFeePotential) : null,
+      },
+    });
+    res.status(201).json({ ok: true, lead });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.patch("/leads/:id", async (req, res) => {
+  try {
+    const { status, notes } = req.body || {};
+    const lead = await prisma.lead.update({
+      where: { id: req.params.id },
+      data: {
+        ...(status ? { status } : {}),
+        ...(notes !== undefined ? { notes } : {}),
+        ...(status === "WON" ? { convertedAt: new Date() } : {}),
+      },
+    });
+    res.json({ ok: true, lead });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 app.post("/jobs/weekly-report/run", async (req, res) => {
   if (!isJobRunnerAuthorized(req)) {
     res.status(401).json({ ok: false, message: "Unauthorized job execution" });

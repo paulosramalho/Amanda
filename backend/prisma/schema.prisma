@@ -96,6 +96,18 @@ model WeeklyReport {
   @@map("relatorios_semanais")
 }
 
+model MonthlyGoal {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  month     String
+  spendGoal Decimal? @db.Decimal(12, 2) @map("spend_goal")
+  leadsGoal Int?     @map("leads_goal")
+
+  @@unique([month])
+  @@map("monthly_goals")
+}
+
 model JobExecution {
   id           String    @id @default(cuid())
   createdAt    DateTime  @default(now()) @map("created_at")
