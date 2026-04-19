@@ -10,6 +10,7 @@ import {
   runAdsCollectionJob,
 } from "./jobs/adsCollectionJob.js";
 import { generateWeeklyReport, getLatestWeeklyReport } from "./jobs/weeklyReportJob.js";
+import { sendWeeklyReportEmail } from "./lib/notify.js";
 import { getAdsSchedulerState, startAdsScheduler, stopAdsScheduler } from "./jobs/adsScheduler.js";
 import { startWeeklyReportScheduler, stopWeeklyReportScheduler } from "./jobs/weeklyReportScheduler.js";
 import {
@@ -477,6 +478,10 @@ app.post("/jobs/weekly-report/run", async (req, res) => {
   try {
     const force = req.body?.force === true;
     const result = await generateWeeklyReport({ force });
+    if (result.ok) {
+      const report = await prisma.weeklyReport.findUnique({ where: { id: result.reportId } });
+      if (report) sendWeeklyReportEmail(report).catch((e) => console.error("[weekly-report/run] email failed:", e));
+    }
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
