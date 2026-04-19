@@ -7,6 +7,15 @@ import "./App.css";
 
 const API = import.meta.env.VITE_API_BASE_URL || "https://amanda-api.onrender.com";
 
+function getToken() { return localStorage.getItem("amr_token"); }
+function apiFetch(path, options = {}) {
+  const token = getToken();
+  return fetch(`${API}${path}`, {
+    ...options,
+    headers: { ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+}
+
 const PERIODS = [
   { label: "7 dias", value: 7 },
   { label: "14 dias", value: 14 },
@@ -344,7 +353,7 @@ function LeadsTab({ leads, onCreated, onStatusChange }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`${API}/leads`, {
+      const res = await apiFetch(`/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -467,9 +476,75 @@ function LeadsTab({ leads, onCreated, onStatusChange }) {
   );
 }
 
+// ── Login Screen ─────────────────────────────────────────────────────────────
+
+function LoginScreen({ onLogin }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        localStorage.setItem("amr_token", data.token);
+        onLogin();
+      } else {
+        setError(data.message || "Senha incorreta");
+      }
+    } catch {
+      setError("Falha ao conectar com o servidor.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="login-screen">
+      <div className="login-box">
+        <div className="login-brand">
+          <span className="brand-dot" />
+          AMR Ads Control
+        </div>
+        <form onSubmit={handleSubmit} className="login-form">
+          <label className="form-label">Senha de acesso</label>
+          <input
+            className="form-input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoFocus
+          />
+          {error && <div className="login-error">{error}</div>}
+          <button className="btn-primary login-btn" type="submit" disabled={loading || !password}>
+            {loading ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [authed, setAuthed] = useState(!!getToken());
+  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
+
+  function handleLogout() {
+    localStorage.removeItem("amr_token");
+    setAuthed(false);
+  }
+
   const [tab, setTab] = useState("overview");
   const [days, setDays] = useState(30);
   const [summary, setSummary] = useState(null);
@@ -490,12 +565,12 @@ export default function App() {
     setError(null);
     try {
       const [s, dy, c, wr, goal, leadsData] = await Promise.all([
-        fetch(`${API}/dashboard/summary?days=${d}`).then((r) => r.json()),
-        fetch(`${API}/dashboard/daily?days=${d}`).then((r) => r.json()),
-        fetch(`${API}/dashboard/campaigns?days=${d}`).then((r) => r.json()),
-        fetch(`${API}/dashboard/weekly-reports`).then((r) => r.json()),
-        fetch(`${API}/dashboard/monthly-goal?month=${month}`).then((r) => r.json()),
-        fetch(`${API}/leads`).then((r) => r.json()),
+        apiFetch(`/dashboard/summary?days=${d}`).then((r) => r.json()),
+        apiFetch(`/dashboard/daily?days=${d}`).then((r) => r.json()),
+        apiFetch(`/dashboard/campaigns?days=${d}`).then((r) => r.json()),
+        apiFetch(`/dashboard/weekly-reports`).then((r) => r.json()),
+        apiFetch(`/dashboard/monthly-goal?month=${month}`).then((r) => r.json()),
+        apiFetch(`/leads`).then((r) => r.json()),
       ]);
       if (s.ok) setSummary(s);
       if (dy.ok) setSeries(dy.series || []);
@@ -513,7 +588,7 @@ export default function App() {
   useEffect(() => { load(days); }, [days, load]);
 
   async function handleSaveGoal(data) {
-    const res = await fetch(`${API}/dashboard/monthly-goal`, {
+    const res = await apiFetch(`/dashboard/monthly-goal`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -524,7 +599,7 @@ export default function App() {
   }
 
   async function handleStatusChange(id, status) {
-    const res = await fetch(`${API}/leads/${id}`, {
+    const res = await apiFetch(`/leads/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -579,6 +654,7 @@ export default function App() {
           {summary?.lastCollection && (
             <span className="last-update">Atualizado {fmtDatetime(summary.lastCollection)}</span>
           )}
+          <button className="logout-btn" onClick={handleLogout} type="button">Sair</button>
         </div>
       </header>
 

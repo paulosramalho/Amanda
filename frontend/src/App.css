@@ -343,6 +343,92 @@
   font-weight: 600;
 }
 
+/* ── Login ── */
+.login-screen {
+  min-height: 100vh;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-box {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.5);
+}
+
+.login-brand {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-form .form-label {
+  color: #94a3b8;
+}
+
+.login-form .form-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+  font-size: 1rem;
+  padding: 10px 14px;
+}
+
+.login-form .form-input:focus {
+  border-color: #ea580c;
+  background: #0f172a;
+}
+
+.login-error {
+  font-size: 0.82rem;
+  color: #f87171;
+  padding: 6px 0;
+}
+
+.login-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 12px;
+  font-size: 0.92rem;
+}
+
+.logout-btn {
+  background: transparent;
+  border: 1px solid #334155;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-base);
+  transition: border-color 150ms, color 150ms;
+}
+
+.logout-btn:hover {
+  border-color: #64748b;
+  color: #f8fafc;
+}
+
 /* ── Monthly Goal ── */
 .goal-section {
   background: #fff;

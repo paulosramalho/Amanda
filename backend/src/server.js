@@ -1,6 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
+import jwt from "jsonwebtoken";
 import { prisma } from "./lib/prisma.js";
 import { toBusinessDateAtNoon, toBusinessDateIsoString } from "./lib/businessDate.js";
 import {
@@ -23,6 +24,19 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use("/dashboard", requireAuth);
+app.use("/leads", requireAuth);
+
+function requireAuth(req, res, next) {
+  const token = req.header("authorization")?.replace("Bearer ", "");
+  if (!token) { res.status(401).json({ ok: false, message: "Token ausente" }); return; }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET || "amr-ads-secret");
+    next();
+  } catch {
+    res.status(401).json({ ok: false, message: "Token inválido ou expirado" });
+  }
+}
 
 function isJobRunnerAuthorized(req) {
   const configuredApiKey = process.env.JOB_RUNNER_API_KEY;
@@ -34,6 +48,15 @@ function isJobRunnerAuthorized(req) {
   const receivedApiKey = req.header("x-api-key") || req.header("authorization")?.replace("Bearer ", "");
   return receivedApiKey === configuredApiKey;
 }
+
+app.post("/auth/login", (req, res) => {
+  const { password } = req.body || {};
+  const configured = process.env.DASHBOARD_PASSWORD;
+  if (!configured) { res.status(500).json({ ok: false, message: "DASHBOARD_PASSWORD não configurado" }); return; }
+  if (password !== configured) { res.status(401).json({ ok: false, message: "Senha incorreta" }); return; }
+  const token = jwt.sign({ sub: "dashboard" }, process.env.JWT_SECRET || "amr-ads-secret", { expiresIn: "30d" });
+  res.json({ ok: true, token });
+});
 
 app.get("/health", (_req, res) => {
   res.status(200).json({
