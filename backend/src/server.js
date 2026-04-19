@@ -11,6 +11,7 @@ import {
 } from "./jobs/adsCollectionJob.js";
 import { generateWeeklyReport, getLatestWeeklyReport } from "./jobs/weeklyReportJob.js";
 import { getAdsSchedulerState, startAdsScheduler, stopAdsScheduler } from "./jobs/adsScheduler.js";
+import { startWeeklyReportScheduler, stopWeeklyReportScheduler } from "./jobs/weeklyReportScheduler.js";
 import {
   getGoogleAdsAuthRuntimeDebug,
   probeGoogleAdsAuthentication,
@@ -400,6 +401,7 @@ app.get("/", (_req, res) => {
 
 const schedulerState = startAdsScheduler();
 console.log("Ads scheduler state:", schedulerState);
+startWeeklyReportScheduler();
 
 const server = app.listen(PORT, () => {
   console.log(`Amanda backend running on port ${PORT}`);
@@ -409,6 +411,7 @@ async function shutdown(signal) {
   console.log(`Received ${signal}. Shutting down gracefully...`);
 
   stopAdsScheduler();
+  stopWeeklyReportScheduler();
 
   server.close(async () => {
     await prisma.$disconnect();

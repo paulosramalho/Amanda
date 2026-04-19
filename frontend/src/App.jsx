@@ -143,6 +143,7 @@ function WeeklyReportSection({ report }) {
 }
 
 export default function App() {
+  const [tab, setTab] = useState("overview");
   const [days, setDays] = useState(30);
   const [summary, setSummary] = useState(null);
   const [series, setSeries] = useState([]);
@@ -186,17 +187,37 @@ export default function App() {
         </div>
         <div className="dash-controls">
           <div className="period-tabs">
-            {PERIODS.map((p) => (
+            <button
+              className={`period-tab${tab === "overview" ? " active" : ""}`}
+              onClick={() => setTab("overview")}
+              type="button"
+            >
+              Visão Geral
+            </button>
+            {weeklyReport && (
               <button
-                key={p.value}
-                className={`period-tab${days === p.value ? " active" : ""}`}
-                onClick={() => setDays(p.value)}
+                className={`period-tab${tab === "weekly" ? " active" : ""}`}
+                onClick={() => setTab("weekly")}
                 type="button"
               >
-                {p.label}
+                Relatório Semanal
               </button>
-            ))}
+            )}
           </div>
+          {tab === "overview" && (
+            <div className="period-tabs" style={{ marginLeft: 8 }}>
+              {PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  className={`period-tab${days === p.value ? " active" : ""}`}
+                  onClick={() => setDays(p.value)}
+                  type="button"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
           {summary?.lastCollection && (
             <span className="last-update">
               Atualizado {fmtDatetime(summary.lastCollection)}
@@ -208,90 +229,94 @@ export default function App() {
       <main className="dash-main">
         {error && <div className="error-msg">{error}</div>}
 
-        <AlertBanner alerts={summary?.alerts} />
+        {tab === "overview" && (
+          <>
+            <AlertBanner alerts={summary?.alerts} />
 
-        <section className="kpi-row">
-          <KPICard label="Gasto Total" value={loading ? "…" : brl(t?.spend)} sub={`${days} dias`} />
-          <KPICard label="Leads" value={loading ? "…" : (t?.leads ?? 0)} sub="conversões" highlight={t?.leads > 0} />
-          <KPICard label="CPL Médio" value={loading ? "…" : (t?.cpl != null ? brl(t.cpl) : "—")} sub="custo por lead" />
-          <KPICard label="Impressões" value={loading ? "…" : (t?.impressions ?? 0).toLocaleString("pt-BR")} sub="alcance" />
-          <KPICard label="CTR" value={loading ? "…" : pct(t?.ctr)} sub="taxa de clique" />
-          <KPICard label="Cliques" value={loading ? "…" : (t?.clicks ?? 0).toLocaleString("pt-BR")} sub="total" />
-        </section>
+            <section className="kpi-row">
+              <KPICard label="Gasto Total" value={loading ? "…" : brl(t?.spend)} sub={`${days} dias`} />
+              <KPICard label="Leads" value={loading ? "…" : (t?.leads ?? 0)} sub="conversões" highlight={t?.leads > 0} />
+              <KPICard label="CPL Médio" value={loading ? "…" : (t?.cpl != null ? brl(t.cpl) : "—")} sub="custo por lead" />
+              <KPICard label="Impressões" value={loading ? "…" : (t?.impressions ?? 0).toLocaleString("pt-BR")} sub="alcance" />
+              <KPICard label="CTR" value={loading ? "…" : pct(t?.ctr)} sub="taxa de clique" />
+              <KPICard label="Cliques" value={loading ? "…" : (t?.clicks ?? 0).toLocaleString("pt-BR")} sub="total" />
+            </section>
 
-        {platforms.length > 0 && (
-          <section className="platform-row">
-            {platforms.map(([plat, data]) => (
-              <PlatformCard key={plat} platform={plat} data={data} />
-            ))}
-          </section>
+            {platforms.length > 0 && (
+              <section className="platform-row">
+                {platforms.map(([plat, data]) => (
+                  <PlatformCard key={plat} platform={plat} data={data} />
+                ))}
+              </section>
+            )}
+
+            <section className="chart-section">
+              <h2 className="section-title">Gasto e Leads — {days} dias</h2>
+              {series.length === 0 && !loading ? (
+                <div className="empty-chart">Sem dados para o período selecionado.</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={series} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 12, fill: "#64748b" }} />
+                    <YAxis yAxisId="spend" tickFormatter={(v) => `R$${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} tick={{ fontSize: 11, fill: "#64748b" }} width={80} />
+                    <YAxis yAxisId="leads" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} width={36} allowDecimals={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar yAxisId="leads" dataKey="leads" name="Leads" fill="#10b981" opacity={0.85} radius={[3, 3, 0, 0]} />
+                    <Line yAxisId="spend" dataKey="spend" name="Gasto" stroke="#ea580c" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </section>
+
+            <section className="table-section">
+              <h2 className="section-title">Campanhas — {days} dias</h2>
+              {campaigns.length === 0 && !loading ? (
+                <div className="empty-chart">Nenhuma campanha no período.</div>
+              ) : (
+                <div className="table-wrap">
+                  <table className="camp-table">
+                    <thead>
+                      <tr>
+                        <th>Campanha</th>
+                        <th>Canal</th>
+                        <th className="num">Gasto</th>
+                        <th className="num">Impressões</th>
+                        <th className="num">Cliques</th>
+                        <th className="num">CTR</th>
+                        <th className="num">Leads</th>
+                        <th className="num">CPL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campaigns.map((c) => (
+                        <tr key={`${c.platform}-${c.campaignId}`}>
+                          <td className="camp-name">{c.campaignName || c.campaignId}</td>
+                          <td>
+                            <span className="plat-badge" style={{ background: PLATFORM_COLOR[c.platform] + "22", color: PLATFORM_COLOR[c.platform] }}>
+                              {PLATFORM_LABEL[c.platform] || c.platform}
+                            </span>
+                          </td>
+                          <td className="num">{brl(c.spend)}</td>
+                          <td className="num">{c.impressions.toLocaleString("pt-BR")}</td>
+                          <td className="num">{c.clicks.toLocaleString("pt-BR")}</td>
+                          <td className="num">{c.ctr != null ? `${c.ctr}%` : "—"}</td>
+                          <td className="num leads-cell">{c.leads}</td>
+                          <td className={`num ${c.cpl != null && c.cpl > 200 ? "cpl-high" : c.cpl != null ? "cpl-ok" : ""}`}>
+                            {c.cpl != null ? brl(c.cpl) : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </>
         )}
 
-        <section className="chart-section">
-          <h2 className="section-title">Gasto e Leads — {days} dias</h2>
-          {series.length === 0 && !loading ? (
-            <div className="empty-chart">Sem dados para o período selecionado.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={series} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 12, fill: "#64748b" }} />
-                <YAxis yAxisId="spend" tickFormatter={(v) => `R$${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} tick={{ fontSize: 11, fill: "#64748b" }} width={80} />
-                <YAxis yAxisId="leads" orientation="right" tick={{ fontSize: 11, fill: "#64748b" }} width={36} allowDecimals={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Bar yAxisId="leads" dataKey="leads" name="Leads" fill="#10b981" opacity={0.85} radius={[3, 3, 0, 0]} />
-                <Line yAxisId="spend" dataKey="spend" name="Gasto" stroke="#ea580c" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-        </section>
-
-        <section className="table-section">
-          <h2 className="section-title">Campanhas — {days} dias</h2>
-          {campaigns.length === 0 && !loading ? (
-            <div className="empty-chart">Nenhuma campanha no período.</div>
-          ) : (
-            <div className="table-wrap">
-              <table className="camp-table">
-                <thead>
-                  <tr>
-                    <th>Campanha</th>
-                    <th>Canal</th>
-                    <th className="num">Gasto</th>
-                    <th className="num">Impressões</th>
-                    <th className="num">Cliques</th>
-                    <th className="num">CTR</th>
-                    <th className="num">Leads</th>
-                    <th className="num">CPL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {campaigns.map((c) => (
-                    <tr key={`${c.platform}-${c.campaignId}`}>
-                      <td className="camp-name">{c.campaignName || c.campaignId}</td>
-                      <td>
-                        <span className="plat-badge" style={{ background: PLATFORM_COLOR[c.platform] + "22", color: PLATFORM_COLOR[c.platform] }}>
-                          {PLATFORM_LABEL[c.platform] || c.platform}
-                        </span>
-                      </td>
-                      <td className="num">{brl(c.spend)}</td>
-                      <td className="num">{c.impressions.toLocaleString("pt-BR")}</td>
-                      <td className="num">{c.clicks.toLocaleString("pt-BR")}</td>
-                      <td className="num">{c.ctr != null ? `${c.ctr}%` : "—"}</td>
-                      <td className="num leads-cell">{c.leads}</td>
-                      <td className={`num ${c.cpl != null && c.cpl > 200 ? "cpl-high" : c.cpl != null ? "cpl-ok" : ""}`}>
-                        {c.cpl != null ? brl(c.cpl) : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <WeeklyReportSection report={weeklyReport} />
+        {tab === "weekly" && <WeeklyReportSection report={weeklyReport} />}
       </main>
     </div>
   );
