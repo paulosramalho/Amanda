@@ -470,6 +470,33 @@ app.patch("/leads/:id", async (req, res) => {
   }
 });
 
+app.post("/jobs/notify-test", async (req, res) => {
+  if (!isJobRunnerAuthorized(req)) {
+    res.status(401).json({ ok: false, message: "Unauthorized" });
+    return;
+  }
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = process.env.NOTIFY_EMAIL_TO;
+  const from = process.env.NOTIFY_EMAIL_FROM || "onboarding@resend.dev";
+
+  if (!apiKey) return res.json({ ok: false, reason: "RESEND_API_KEY not set" });
+  if (!to) return res.json({ ok: false, reason: "NOTIFY_EMAIL_TO not set" });
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+    const result = await resend.emails.send({
+      from,
+      to,
+      subject: "AMR Ads — Teste de notificação",
+      html: "<p>Notificação de teste do AMR Ads Control.</p>",
+    });
+    res.json({ ok: true, from, to, resendId: result.data?.id, error: result.error });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 app.post("/jobs/weekly-report/run", async (req, res) => {
   if (!isJobRunnerAuthorized(req)) {
     res.status(401).json({ ok: false, message: "Unauthorized job execution" });
