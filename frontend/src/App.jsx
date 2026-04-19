@@ -8,12 +8,19 @@ import "./App.css";
 const API = import.meta.env.VITE_API_BASE_URL || "https://amanda-api.onrender.com";
 
 function getToken() { return localStorage.getItem("amr_token"); }
-function apiFetch(path, options = {}) {
+async function apiFetch(path, options = {}) {
   const token = getToken();
-  return fetch(`${API}${path}`, {
+  const res = await fetch(`${API}${path}`, {
     ...options,
     headers: { ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
+  if (res.status === 401) {
+    localStorage.removeItem("amr_token");
+    sessionStorage.setItem("amr_session_msg", "Desconectado por inatividade.");
+    window.location.reload();
+    throw new Error("unauthenticated");
+  }
+  return res;
 }
 
 const PERIODS = [
@@ -480,7 +487,11 @@ function LeadsTab({ leads, onCreated, onStatusChange }) {
 
 function LoginScreen({ onLogin }) {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(() => {
+    const msg = sessionStorage.getItem("amr_session_msg");
+    if (msg) { sessionStorage.removeItem("amr_session_msg"); return msg; }
+    return null;
+  });
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
