@@ -29,13 +29,12 @@ Atualizado em: 18/04/2026
 | Conta autorizada | financeiro@amandaramalho.adv.br |
 | Scope | https://www.googleapis.com/auth/adwords |
 | Projeto Google Cloud | amr-controles (807042223209) |
-| Consent screen | Modo **Teste** — usuária de teste: financeiro@amandaramalho.adv.br |
+| Consent screen | **Produção** (publicado em 18/04/2026) — refresh token não expira |
 | Redirect URI registrado | https://developers.google.com/oauthplayground |
 
 ### Atenção
-- Consent screen em modo **Teste** — refresh token expira em **7 dias**
-- Renovar via OAuth Playground com `Google Ads Amanda Web` sempre que expirar
-- Para solução permanente: publicar o app na tela de consentimento OAuth do amr-controles
+- Consent screen em **Produção** — refresh token não expira (apenas se amanda@ revogar o acesso)
+- Se necessário regenerar: OAuth Playground → `Google Ads Amanda Web` → scope `adwords` → conta `amanda@amandaramalho.adv.br`
 
 ### Histórico
 - 08/04/2026: OAuth original configurado e validado — `google.status = success`, 1 campanha coletada ("Empresarial")
