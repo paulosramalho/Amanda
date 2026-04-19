@@ -1,6 +1,6 @@
 # Plano de Implantação e Status — Amanda Ads App
 
-Atualizado em: 19/04/2026
+Atualizado em: 18/04/2026
 Escopo: Google Ads e Meta Ads para Amanda Ramalho (@amandamramalho — marca pessoal).
 Regra de data de negócio: sempre `UTC-3 T12:00:00` via `toBusinessDateAtNoon()`.
 
@@ -41,11 +41,11 @@ Protegido por autenticação JWT (senha configurada em `DASHBOARD_PASSWORD`). Tr
 | 2. Banco e Prisma | ✅ Concluído | 08/04/2026 |
 | 3. Modelo de dados | ✅ Concluído | 08/04/2026 |
 | 4. Coleta automática Ads | ✅ Concluído | 18/04/2026 |
-| 5. API de negócio | ✅ Concluído | 19/04/2026 |
-| 6. Relatório semanal | ✅ Concluído | 19/04/2026 |
-| 7. Frontend dedicado | ✅ Concluído | 19/04/2026 |
-| 8. Alertas e governança | ✅ Concluído | 19/04/2026 |
-| 9. Go-live controlado | ✅ Concluído | 19/04/2026 |
+| 5. API de negócio | ✅ Concluído | 18/04/2026 |
+| 6. Relatório semanal | ✅ Concluído | 18/04/2026 |
+| 7. Frontend dedicado | ✅ Concluído | 18/04/2026 |
+| 8. Alertas e governança | ✅ Concluído | 18/04/2026 |
+| 9. Go-live controlado | ✅ Concluído | 18/04/2026 |
 
 ---
 
