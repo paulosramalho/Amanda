@@ -37,7 +37,7 @@ const PLATFORM_COLOR = { GOOGLE_ADS: "#1d4ed8", META_ADS: "#7c3aed" };
 
 const SOURCE_LABEL = {
   GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads", INSTAGRAM_ADS: "Instagram",
-  ORGANIC: "Orgânico", REFERRAL: "Indicação", OTHER: "Outro",
+  ORGANIC: "Orgânico", REFERRAL: "Indicação", SITE: "Site", OTHER: "Outro",
 };
 
 const STATUS_LABEL = {
@@ -352,6 +352,15 @@ function WeeklyReportSection({ reports }) {
 
 // ── Leads Tab ─────────────────────────────────────────────────────────────────
 
+function parseLeadNotes(notes) {
+  if (!notes) return { urgencia: null, mensagem: null };
+  const lines = notes.split("\n");
+  const urgLine = lines.find((l) => l.startsWith("Urgência: "));
+  const urgencia = urgLine ? urgLine.replace("Urgência: ", "") : null;
+  const mensagem = lines.filter((l) => !l.startsWith("Área: ") && !l.startsWith("Urgência: ")).join(" ") || null;
+  return { urgencia, mensagem: mensagem || null };
+}
+
 function LeadsTab({ leads, onCreated, onStatusChange }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", email: "", companyName: "", source: "OTHER", campaignName: "", notes: "", monthlyFeePotential: "" });
@@ -443,28 +452,32 @@ function LeadsTab({ leads, onCreated, onStatusChange }) {
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>Empresa</th>
+                <th>E-mail</th>
                 <th>Telefone</th>
+                <th>Urgência</th>
                 <th>Origem</th>
                 <th>Campanha</th>
-                <th className="num">Fee Potencial</th>
+                <th>Necessidade</th>
                 <th>Status</th>
                 <th>Data</th>
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead) => (
+              {leads.map((lead) => {
+                const { urgencia, mensagem } = parseLeadNotes(lead.notes);
+                return (
                 <tr key={lead.id}>
                   <td className="camp-name">{lead.name || "—"}</td>
-                  <td>{lead.companyName || "—"}</td>
+                  <td>{lead.email || "—"}</td>
                   <td>{lead.phone || "—"}</td>
+                  <td>{urgencia || "—"}</td>
                   <td>
                     <span className="plat-badge" style={{ background: "#f1f5f9", color: "#475569" }}>
                       {SOURCE_LABEL[lead.source] || lead.source}
                     </span>
                   </td>
                   <td>{lead.campaignName || "—"}</td>
-                  <td className="num">{lead.monthlyFeePotential ? brl(lead.monthlyFeePotential) : "—"}</td>
+                  <td title={mensagem || ""}>{mensagem ? mensagem.slice(0, 60) + (mensagem.length > 60 ? "…" : "") : "—"}</td>
                   <td>
                     <select
                       className="status-select"
@@ -477,7 +490,8 @@ function LeadsTab({ leads, onCreated, onStatusChange }) {
                   </td>
                   <td>{fmtDateFull(lead.businessDate)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

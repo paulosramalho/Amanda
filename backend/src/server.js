@@ -524,7 +524,7 @@ app.post("/api/site/lead", requireSiteSecret, async (req, res) => {
         name: nome || null,
         email: email || null,
         phone: telefone || null,
-        source: "OTHER",
+        source: "SITE",
         campaignName: area || null,
         notes: notes || null,
       },
