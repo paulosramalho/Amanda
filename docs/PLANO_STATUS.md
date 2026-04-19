@@ -1,8 +1,36 @@
 # Plano de Implantacao e Status - Amanda Ads App
 
-Atualizado em: 08/04/2026
+Atualizado em: 08/04/2026 (22:40, America/Sao_Paulo)
 Escopo: Google Ads, Meta Ads e Instagram Ads para Amanda Ramalho Advogados.
 Regra de data de negocio: usar sempre `UTC-3 T12:00:00` (`YYYY-MM-DDT12:00:00-03:00`).
+
+## Ponto de parada (onde paramos)
+Data/hora: 08/04/2026, 22:33 (America/Sao_Paulo).
+
+1. Google Ads operacional em producao.
+2. Diagnostico Google fechado: OAuth/refresh token ok, scope `adwords` ok, `listAccessibleCustomers` ok.
+3. Coleta manual executada com sucesso:
+   - `POST /jobs/ads-collection/run` retornou `google.status = success`, `campaigns = 1`, `totalUpserted = 1`.
+4. Meta Ads pausado por agora.
+5. Bloqueio atual Meta: no portfolio `Amanda Ramalho Advocacia` nao existe conta de anuncios adicionada (`Nenhuma conta de anuncios adicionada`).
+
+## Pendencias abertas (retomada)
+1. Definir portfolio de operacao Meta:
+   - Opcao A: compartilhar a conta `1546663345829444` para `Amanda Ramalho Advocacia`.
+   - Opcao B: operar no portfolio que ja possui a conta (ex.: `Accordo BR`) e ajustar governanca.
+2. Garantir acesso do app `AMR Ads Connector` a conta de anuncios escolhida.
+3. Criar/ajustar usuario de sistema no portfolio correto e atribuir:
+   - app `AMR Ads Connector`;
+   - conta de anuncios alvo;
+   - permissoes para leitura de ads.
+4. Gerar token Meta com `ads_read` e `business_management`.
+5. Atualizar ENV no Render:
+   - `META_ADS_ENABLED=true`
+   - `META_ADS_ACCOUNT_ID=<conta alvo>`
+   - `META_ADS_ACCESS_TOKEN=<token valido>`
+6. Validar em producao:
+   - `POST /jobs/ads-collection/run`
+   - esperado: `providers.meta.status = success` (sem `skipped`).
 
 ## Objetivo de negocio
 Atrair leads qualificados para conversao em clientes de fee mensal, com foco em advocacia empresarial para pequenas e medias empresas de Sao Paulo.
@@ -24,7 +52,7 @@ Atrair leads qualificados para conversao em clientes de fee mensal, com foco em 
 | 1. Fundacao tecnica | Concluido | 07/04/2026 | Repo `paulosramalho/Amanda` inicializado, backend Express ativo, deploy Render validado com `GET /health` retornando `ok: true`. | Nada deste passo. | Concluido |
 | 2. Banco e Prisma | Concluido (deploy validado) | 08/04/2026 | Prisma 6.17.1 integrado (`@prisma/client` + `prisma`), schema criado, migration versionada em `backend/prisma/migrations`, scripts `prisma:generate`, `prisma:migrate:deploy`, `prisma:migrate:dev` e `postinstall` configurados, `start` aplicando migration automaticamente. Deploy em producao validado com DB reachable. | Nada deste passo. | Concluido |
 | 3. Modelo de dados | Concluido (base) | 08/04/2026 | Modelos/tabelas implementados: `leads`, `campanhas_diarias`, `relatorios_semanais`, `jobs_execucao`; enums de status/fonte; indices e constraints iniciais. | Ajustes finos de colunas conforme integracao real dos canais de Ads. | 09/04/2026 |
-| 4. Coleta automatica Ads | Em andamento (engine pronta) | 08/04/2026 | Job de coleta implementado (`adsCollectionJob`), providers Google/Meta implementados, scheduler interno em UTC configuravel, endpoints de execucao e consulta (`/jobs/ads-collection/*`, `/campaigns/daily`) e persistencia em `campanhas_diarias` + `jobs_execucao`. | Inserir credenciais reais de Ads, configurar API key do runner e agendar Cron externo no Render para chamar `POST /jobs/ads-collection/run`. | 08/04/2026 |
+| 4. Coleta automatica Ads | Em andamento (Google ok / Meta pendente) | 08/04/2026 | Job de coleta implementado (`adsCollectionJob`), providers Google/Meta implementados, scheduler interno em UTC configuravel, endpoints de execucao e consulta (`/jobs/ads-collection/*`, `/campaigns/daily`) e persistencia em `campanhas_diarias` + `jobs_execucao`. Google validado em producao com coleta efetiva e upsert realizado. | Finalizar vinculacao Meta (conta de anuncios no portfolio correto), gerar token Meta e validar coleta Meta sem `skipped`. | 09/04/2026 |
 | 5. API de negocio | Em andamento (base) | 08/04/2026 | Endpoints base prontos: `/`, `/health`, `/health/db`, `/business-date`. Consulta inicial de dados diarios disponivel em `/campaigns/daily`. | Criar endpoints de dashboard e consolidacao com KPIs por periodo/canal. | 09/04/2026 |
 | 6. Resumo semanal (agente) | Pendente | - | Escopo de resumo executivo definido. | Job semanal para gerar: o que funcionou, pausar, escalar. Persistir e disponibilizar via API. | 10/04/2026 |
 | 7. Frontend dedicado | Em andamento (deploy inicial) | 08/04/2026 | Frontend Vite criado em `frontend/` e publicado na Vercel (confirmado). Tela inicial conectada ao backend via `VITE_API_BASE_URL`. | Dashboard operacional (filtros, comparativos, funil e historico). | 10/04/2026 |
@@ -49,3 +77,15 @@ Sempre atualizar este documento com:
 - Frontend Vercel publicado (confirmado pelo deploy do projeto).
 - Commit Passo 4 (coleta automatica Ads): 34c8522.
 - Validacao em producao (08/04/2026): /jobs/ads-collection/config ok, POST /jobs/ads-collection/run ok (execucao de teste), /jobs/ads-collection/recent ok, /campaigns/daily ok.
+- Commits de diagnostico Google Ads:
+  - `6ba5fcf` (endpoint de diagnostico Google auth)
+  - `fa9729a` (aceitar GET/POST no diagnostico)
+  - `66b7b28` (teste com e sem login header)
+  - `fc03661` (detalhamento completo de erro Google Ads)
+- Diagnostico final Google (08/04/2026, noite):
+  - causa raiz encontrada: `DEVELOPER_TOKEN_INVALID`;
+  - apos correcao do developer token, `accessibleCustomers` passou a `ok: true` para `5439313784` e `6627616245`;
+  - execucao manual do job confirmou `google.status = success` e `totalUpserted = 1`.
+- Estado atual Meta (08/04/2026, noite):
+  - `meta.status = skipped` por falta/indefinicao de credencial/acesso operacional;
+  - portfolio `Amanda Ramalho Advocacia` sem conta de anuncios adicionada no momento da pausa.
