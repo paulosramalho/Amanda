@@ -17,17 +17,28 @@ async function apiFetch(url) {
 }
 
 async function getIgUserId(accessToken) {
+  // Uso direto se INSTAGRAM_USER_ID estiver configurado
+  if (process.env.INSTAGRAM_USER_ID) {
+    return { igUserId: process.env.INSTAGRAM_USER_ID, token: accessToken };
+  }
+
+  // Percorre páginas buscando a que tem instagram_business_account
   const pages = await apiFetch(`${BASE_URL}/me/accounts?access_token=${accessToken}`);
   if (!pages.data?.length) throw new Error("Nenhuma Página do Facebook encontrada para este token");
 
-  const page = pages.data[0];
-  const token = page.access_token || accessToken;
-  const igData = await apiFetch(`${BASE_URL}/${page.id}?fields=instagram_business_account&access_token=${token}`);
-
-  if (!igData.instagram_business_account?.id) {
-    throw new Error("Nenhuma conta Instagram vinculada à Página do Facebook");
+  for (const page of pages.data) {
+    const token = page.access_token || accessToken;
+    try {
+      const igData = await apiFetch(`${BASE_URL}/${page.id}?fields=instagram_business_account&access_token=${token}`);
+      if (igData.instagram_business_account?.id) {
+        return { igUserId: igData.instagram_business_account.id, token };
+      }
+    } catch {
+      continue;
+    }
   }
-  return { igUserId: igData.instagram_business_account.id, token };
+
+  throw new Error("Nenhuma conta Instagram vinculada encontrada. Configure INSTAGRAM_USER_ID.");
 }
 
 async function fetchInsights(postId, mediaType, token) {
