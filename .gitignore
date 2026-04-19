@@ -17,3 +17,7 @@ coverage/
 Thumbs.db
 .vscode/
 .idea/
+
+# Credenciais sensíveis
+"Depósito/"
+client_secret*.json

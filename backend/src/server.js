@@ -514,14 +514,7 @@ app.post("/jobs/notify-test", async (req, res) => {
       subject: "AMR Ads — Teste de notificação",
       html: "<p>Notificação de teste do AMR Ads Control.</p>",
     });
-    const basicResult = { ok: true, from, to, resendId: result.data?.id, error: result.error };
-
-    const report = await prisma.weeklyReport.findFirst({ orderBy: { weekStartDate: "desc" } });
-    if (report) {
-      const reportResult = await sendWeeklyReportEmail(report);
-      return res.json({ ...basicResult, reportEmailResult: reportResult });
-    }
-    res.json(basicResult);
+    res.json({ ok: true, from, to, resendId: result.data?.id, error: result.error });
   } catch (err) {
     res.status(500).json({ ok: false, message: err.message, stack: err.stack });
   }
