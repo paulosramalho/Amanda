@@ -538,13 +538,6 @@ function LoginScreen({ onLogin }) {
 
 export default function App() {
   const [authed, setAuthed] = useState(!!getToken());
-  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
-
-  function handleLogout() {
-    localStorage.removeItem("amr_token");
-    setAuthed(false);
-  }
-
   const [tab, setTab] = useState("overview");
   const [days, setDays] = useState(30);
   const [summary, setSummary] = useState(null);
@@ -585,7 +578,14 @@ export default function App() {
     }
   }, [month]);
 
-  useEffect(() => { load(days); }, [days, load]);
+  useEffect(() => { if (authed) load(days); }, [authed, days, load]);
+
+  function handleLogout() {
+    localStorage.removeItem("amr_token");
+    setAuthed(false);
+  }
+
+  if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
   async function handleSaveGoal(data) {
     const res = await apiFetch(`/dashboard/monthly-goal`, {
