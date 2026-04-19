@@ -29,6 +29,9 @@ const PERIODS = [
   { label: "30 dias", value: 30 },
 ];
 
+const ACTION_LABEL = { INVEST: "Investir mais", REDIRECT: "Redirecionar", REMOVE: "Remover", MONITOR: "Monitorar", MAINTAIN: "Manter" };
+const ACTION_COLOR = { INVEST: "#059669", REDIRECT: "#d97706", REMOVE: "#dc2626", MONITOR: "#2563eb", MAINTAIN: "#64748b" };
+
 const PLATFORM_LABEL = { GOOGLE_ADS: "Google Ads", META_ADS: "Meta Ads" };
 const PLATFORM_COLOR = { GOOGLE_ADS: "#1d4ed8", META_ADS: "#7c3aed" };
 
@@ -483,6 +486,94 @@ function LeadsTab({ leads, onCreated, onStatusChange }) {
   );
 }
 
+// ── Instagram Tab ────────────────────────────────────────────────────────────
+
+function MediaTypeBadge({ type }) {
+  const map = { IMAGE: "Foto", VIDEO: "Vídeo", CAROUSEL_ALBUM: "Carrossel", REELS: "Reel" };
+  return <span className="plat-badge" style={{ background: "#f1f5f9", color: "#475569" }}>{map[type] || type}</span>;
+}
+
+function ActionBadge({ action }) {
+  if (!action) return <span className="plat-badge" style={{ background: "#f1f5f9", color: "#94a3b8" }}>—</span>;
+  return (
+    <span className="plat-badge" style={{ background: ACTION_COLOR[action] + "22", color: ACTION_COLOR[action], fontWeight: 600 }}>
+      {ACTION_LABEL[action] || action}
+    </span>
+  );
+}
+
+function ScoreDots({ score }) {
+  return (
+    <span className="score-dots" title={`${score}/10`}>
+      {Array.from({ length: 10 }, (_, i) => (
+        <span key={i} className="score-dot" style={{ background: i < score ? ACTION_COLOR.INVEST : "#e2e8f0" }} />
+      ))}
+    </span>
+  );
+}
+
+function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
+  return (
+    <div className="leads-tab">
+      <div className="leads-header">
+        <h2 className="section-title" style={{ margin: 0 }}>Conteúdo — @amandamramalho ({posts.length})</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn-secondary" onClick={onRunCollection} disabled={running} type="button">
+            {running === "collection" ? "Coletando…" : "Coletar posts"}
+          </button>
+          <button className="btn-primary" onClick={onRunAnalysis} disabled={running || posts.length === 0} type="button">
+            {running === "analysis" ? "Analisando…" : "Analisar"}
+          </button>
+        </div>
+      </div>
+
+      {posts.length === 0 ? (
+        <div className="empty-chart">Nenhum post coletado. Clique em "Coletar posts" para iniciar.</div>
+      ) : (
+        <div className="table-wrap">
+          <table className="camp-table">
+            <thead>
+              <tr>
+                <th>Post</th>
+                <th>Tipo</th>
+                <th className="num">Curtidas</th>
+                <th className="num">Comentários</th>
+                <th className="num">Alcance</th>
+                <th className="num">Salvamentos</th>
+                <th>Ação</th>
+                <th>Score</th>
+                <th>Justificativa</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+            <tbody>
+              {posts.map((p) => (
+                <tr key={p.id}>
+                  <td className="camp-name">
+                    {p.permalink
+                      ? <a href={p.permalink} target="_blank" rel="noreferrer" className="ig-link">{p.caption ? p.caption.slice(0, 60) + (p.caption.length > 60 ? "…" : "") : "(sem legenda)"}</a>
+                      : <span>{p.caption ? p.caption.slice(0, 60) : "(sem legenda)"}</span>
+                    }
+                  </td>
+                  <td><MediaTypeBadge type={p.mediaType} /></td>
+                  <td className="num">{p.likeCount.toLocaleString("pt-BR")}</td>
+                  <td className="num">{p.commentsCount.toLocaleString("pt-BR")}</td>
+                  <td className="num">{p.reach != null ? p.reach.toLocaleString("pt-BR") : "—"}</td>
+                  <td className="num">{p.saved != null ? p.saved.toLocaleString("pt-BR") : "—"}</td>
+                  <td><ActionBadge action={p.analysis?.action} /></td>
+                  <td>{p.analysis ? <ScoreDots score={p.analysis.score} /> : "—"}</td>
+                  <td className="ig-reasoning">{p.analysis?.reasoning || "—"}</td>
+                  <td>{fmtDateFull(p.publishedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Login Screen ─────────────────────────────────────────────────────────────
 
 function LoginScreen({ onLogin }) {
@@ -557,6 +648,8 @@ export default function App() {
   const [weeklyReports, setWeeklyReports] = useState([]);
   const [monthlyGoal, setMonthlyGoal] = useState(null);
   const [leads, setLeads] = useState([]);
+  const [igPosts, setIgPosts] = useState([]);
+  const [igRunning, setIgRunning] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showGoalEditor, setShowGoalEditor] = useState(false);
@@ -568,12 +661,13 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [s, dy, c, wr, goal, leadsData] = await Promise.all([
+      const [s, dy, c, wr, goal, igData, leadsData] = await Promise.all([
         apiFetch(`/dashboard/summary?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/daily?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/campaigns?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/weekly-reports`).then((r) => r.json()),
         apiFetch(`/dashboard/monthly-goal?month=${month}`).then((r) => r.json()),
+        apiFetch(`/dashboard/instagram-posts`).then((r) => r.json()),
         apiFetch(`/leads`).then((r) => r.json()),
       ]);
       if (s.ok) setSummary(s);
@@ -581,6 +675,7 @@ export default function App() {
       if (c.ok) setCampaigns(c.campaigns || []);
       if (wr.ok) setWeeklyReports(wr.reports || []);
       if (goal.ok) setMonthlyGoal(goal.goal);
+      if (igData.ok) setIgPosts(igData.posts || []);
       if (leadsData.ok) setLeads(leadsData.leads || []);
     } catch {
       setError("Falha ao carregar dados do backend.");
@@ -619,6 +714,34 @@ export default function App() {
     if (d.ok) setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status: d.lead.status, convertedAt: d.lead.convertedAt } : l));
   }
 
+  async function handleIgCollection() {
+    setIgRunning("collection");
+    try {
+      const res = await apiFetch("/jobs/instagram-collection/run", { method: "POST" });
+      const d = await res.json();
+      if (d.ok && d.postsCollected > 0) {
+        const ig = await apiFetch("/dashboard/instagram-posts").then((r) => r.json());
+        if (ig.ok) setIgPosts(ig.posts || []);
+      }
+    } finally {
+      setIgRunning(null);
+    }
+  }
+
+  async function handleIgAnalysis() {
+    setIgRunning("analysis");
+    try {
+      const res = await apiFetch("/jobs/post-analysis/run", { method: "POST" });
+      const d = await res.json();
+      if (d.ok) {
+        const ig = await apiFetch("/dashboard/instagram-posts").then((r) => r.json());
+        if (ig.ok) setIgPosts(ig.posts || []);
+      }
+    } finally {
+      setIgRunning(null);
+    }
+  }
+
   const t = summary?.totals;
   const platforms = Object.entries(summary?.byPlatform || {});
 
@@ -635,6 +758,7 @@ export default function App() {
               { key: "overview", label: "Visão Geral" },
               { key: "weekly", label: "Relatório Semanal" },
               { key: "leads", label: `Leads ${leads.length > 0 ? `(${leads.length})` : ""}` },
+              { key: "instagram", label: `Conteúdo ${igPosts.length > 0 ? `(${igPosts.length})` : ""}` },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -774,6 +898,15 @@ export default function App() {
             leads={leads}
             onCreated={(lead) => setLeads((prev) => [lead, ...prev])}
             onStatusChange={handleStatusChange}
+          />
+        )}
+
+        {tab === "instagram" && (
+          <InstagramTab
+            posts={igPosts}
+            onRunCollection={handleIgCollection}
+            onRunAnalysis={handleIgAnalysis}
+            running={igRunning}
           />
         )}
       </main>

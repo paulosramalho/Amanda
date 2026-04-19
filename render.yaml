@@ -12,3 +12,9 @@
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: INSTAGRAM_ENABLED
+        value: false
+      - key: INSTAGRAM_ACCESS_TOKEN
+        sync: false

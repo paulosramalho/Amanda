@@ -79,6 +79,45 @@ model CampaignDaily {
   @@map("campanhas_diarias")
 }
 
+model InstagramPost {
+  id               String    @id @default(cuid())
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  igPostId         String    @unique @map("ig_post_id")
+  mediaType        String    @map("media_type")
+  caption          String?
+  permalink        String?
+  thumbnailUrl     String?   @map("thumbnail_url")
+  publishedAt      DateTime  @map("published_at")
+  likeCount        Int       @default(0) @map("like_count")
+  commentsCount    Int       @default(0) @map("comments_count")
+  reach            Int?
+  impressions      Int?
+  saved            Int?
+  shares           Int?
+  plays            Int?
+  metricsUpdatedAt DateTime? @map("metrics_updated_at")
+
+  analysis PostAnalysis?
+
+  @@index([publishedAt])
+  @@map("instagram_posts")
+}
+
+model PostAnalysis {
+  id         String        @id @default(cuid())
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  postId     String        @unique @map("post_id")
+  post       InstagramPost @relation(fields: [postId], references: [id])
+  action     String
+  score      Int
+  reasoning  String
+  analyzedAt DateTime      @default(now()) @map("analyzed_at")
+
+  @@map("post_analyses")
+}
+
 model WeeklyReport {
   id                String    @id @default(cuid())
   createdAt         DateTime  @default(now()) @map("created_at")

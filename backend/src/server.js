@@ -18,6 +18,8 @@ import {
   getGoogleAdsAuthRuntimeDebug,
   probeGoogleAdsAuthentication,
 } from "./jobs/ads/providers/googleAds.js";
+import { runInstagramCollectionJob } from "./jobs/instagramCollectionJob.js";
+import { runPostAnalysisJob } from "./jobs/postAnalysisJob.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -569,7 +571,53 @@ app.get("/", (_req, res) => {
       run: "POST /jobs/weekly-report/run",
       latest: "/dashboard/weekly-report",
     },
+    instagram: {
+      posts: "/dashboard/instagram-posts",
+      collectionRun: "POST /jobs/instagram-collection/run",
+      analysisRun: "POST /jobs/post-analysis/run",
+    },
   });
+});
+
+app.get("/dashboard/instagram-posts", async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "30", 10) || 30, 1), 100);
+    const posts = await prisma.instagramPost.findMany({
+      orderBy: { publishedAt: "desc" },
+      take: limit,
+      include: { analysis: true },
+    });
+    res.json({ ok: true, posts });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/jobs/instagram-collection/run", async (req, res) => {
+  if (!isJobRunnerAuthorized(req)) {
+    res.status(401).json({ ok: false, message: "Unauthorized" });
+    return;
+  }
+  try {
+    const result = await runInstagramCollectionJob({ triggeredBy: "http" });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/jobs/post-analysis/run", async (req, res) => {
+  if (!isJobRunnerAuthorized(req)) {
+    res.status(401).json({ ok: false, message: "Unauthorized" });
+    return;
+  }
+  try {
+    const forceReanalyze = req.body?.forceReanalyze === true;
+    const result = await runPostAnalysisJob({ triggeredBy: "http", forceReanalyze });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
 });
 
 const schedulerState = startAdsScheduler();
