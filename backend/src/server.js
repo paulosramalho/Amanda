@@ -24,6 +24,7 @@ import { runPopulateSuggestionsJob } from "./jobs/populateSuggestionsJob.js";
 import { runContentSuggestionsJob } from "./jobs/contentSuggestionsJob.js";
 import { runTrendingSuggestionsJob } from "./jobs/trendingSuggestionsJob.js";
 import { startInstagramScheduler, stopInstagramScheduler, runInstagramCycle } from "./jobs/instagramScheduler.js";
+import { sendAdminAlert } from "./lib/adminNotify.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
 
 const app = express();
@@ -728,6 +729,20 @@ app.patch("/content-suggestions/:id", requireAuth, async (req, res) => {
       data: { status },
     });
     res.json({ ok: true, suggestion: updated });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/jobs/admin-alert/test", requireAuth, async (req, res) => {
+  try {
+    const result = await sendAdminAlert({
+      subject: "🔴 AMR Ads — Teste de alerta crítico",
+      title: "Token do Instagram expirado (simulado)",
+      body: "Este é um teste do sistema de alerta de erros críticos.",
+      steps: ["Acesse o Graph API Explorer e gere um novo token", "Atualize INSTAGRAM_ACCESS_TOKEN no Render"],
+    });
+    res.json({ ok: true, ...result });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
   }

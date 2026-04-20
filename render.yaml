@@ -30,3 +30,9 @@
         value: "2026-04-19"
       - key: SITE_SECRET
         sync: false
+      - key: ADMIN_ALERT_EMAILS
+        value: "paulosramalho@gmail.com,amandaramalhoadv@gmail.com"
+      - key: ADMIN_WHATSAPP_PHONE
+        value: "5591981348026"
+      - key: CALLMEBOT_API_KEY
+        sync: false

@@ -3,6 +3,7 @@ import { runPostAnalysisJob } from "./postAnalysisJob.js";
 import { runContentSuggestionsJob } from "./contentSuggestionsJob.js";
 import { runTrendingSuggestionsJob } from "./trendingSuggestionsJob.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "../lib/instagramNotify.js";
+import { sendAdminAlert } from "../lib/adminNotify.js";
 import { prisma } from "../lib/prisma.js";
 
 const DEFAULT_RUN_UTC_HOUR = 4;  // 01:00 BRT
@@ -30,12 +31,19 @@ async function runFullCycle({ triggeredBy = "scheduler" } = {}) {
     console.log("[instagram-scheduler] Collection:", col.postsCollected ?? col.reason);
   } catch (e) {
     console.error("[instagram-scheduler] Collection failed:", e.message);
-    // Se token expirou, avisa por e-mail
     if (/OAuthException|token|session/i.test(e.message)) {
-      await sendInstagramAnalysisEmail({
-        investPosts: [],
-        removePosts: [],
-        tokenDaysUsed: 999,
+      await sendAdminAlert({
+        subject: "🔴 AMR Ads — Token Instagram expirado — ação necessária",
+        title: "Token do Instagram expirado",
+        body: `O token de acesso à conta @amandamramalho foi invalidado.\nErro: ${e.message.slice(0, 300)}`,
+        steps: [
+          'Acesse <a href="https://developers.facebook.com/tools/explorer/">Graph API Explorer</a>',
+          "Selecione o app <strong>AMR Controles</strong>",
+          "Adicione as permissões: <code>instagram_business_basic</code>, <code>instagram_manage_comments</code>",
+          "Gere o token e cole em <strong>Render → amanda-api → Environment → INSTAGRAM_ACCESS_TOKEN</strong>",
+          `Atualize <strong>INSTAGRAM_TOKEN_ISSUED_DATE</strong> para a data de hoje`,
+          "O Render fará redeploy automático",
+        ],
       }).catch(() => {});
     }
     return;
