@@ -1,5 +1,6 @@
 import { runInstagramCollectionJob } from "./instagramCollectionJob.js";
 import { runPostAnalysisJob } from "./postAnalysisJob.js";
+import { runContentSuggestionsJob } from "./contentSuggestionsJob.js";
 import { runTrendingSuggestionsJob } from "./trendingSuggestionsJob.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "../lib/instagramNotify.js";
 import { prisma } from "../lib/prisma.js";
@@ -48,7 +49,15 @@ async function runFullCycle({ triggeredBy = "scheduler" } = {}) {
     console.error("[instagram-scheduler] Analysis failed:", e.message);
   }
 
-  // 3. Sugestões de tendência (varrendo portais jurídicos)
+  // 3. Sugestões baseadas nos posts do perfil
+  try {
+    const cs = await runContentSuggestionsJob({ triggeredBy });
+    console.log("[instagram-scheduler] Content suggestions:", cs.created ?? 0);
+  } catch (e) {
+    console.error("[instagram-scheduler] Content suggestions failed:", e.message);
+  }
+
+  // 4. Sugestões de tendência (varrendo portais jurídicos)
   try {
     const trend = await runTrendingSuggestionsJob({ triggeredBy });
     console.log("[instagram-scheduler] Trending suggestions:", trend.created ?? 0, "from", (trend.sources || []).join(", "));

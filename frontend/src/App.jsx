@@ -531,7 +531,7 @@ const FORMAT_COLOR = { POST: "#2563eb", CAROUSEL: "#7c3aed", STORIES: "#db2777",
 const SUGGESTION_STATUS_LABEL = { PENDING: "Pendente", DONE: "Feito", DISMISSED: "Descartado" };
 const SUGGESTION_STATUS_COLOR = { PENDING: "#2563eb", DONE: "#059669", DISMISSED: "#94a3b8" };
 
-function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onRunSuggestions, onRunTrending, onSuggestionStatus, running }) {
+function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSuggestionStatus, running }) {
   const [filterAction, setFilterAction] = useState("ALL");
   const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
 
@@ -550,12 +550,6 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onRu
           </button>
           <button className="btn-secondary" onClick={onRunAnalysis} disabled={running || posts.length === 0} type="button">
             {running === "analysis" ? "Analisando…" : "Analisar"}
-          </button>
-          <button className="btn-secondary" onClick={onRunSuggestions} disabled={running || posts.length === 0} type="button">
-            {running === "suggestions" ? "Gerando…" : "✦ Sugerir temas"}
-          </button>
-          <button className="btn-primary" onClick={onRunTrending} disabled={running} type="button">
-            {running === "trending" ? "Varrendo…" : "🔍 Varrer tendências"}
           </button>
         </div>
       </div>
@@ -1018,8 +1012,6 @@ export default function App() {
             suggestions={igSuggestions}
             onRunCollection={handleIgCollection}
             onRunAnalysis={handleIgAnalysis}
-            onRunSuggestions={handleIgSuggestions}
-            onRunTrending={handleTrending}
             onSuggestionStatus={handleSuggestionStatus}
             running={igRunning}
           />
