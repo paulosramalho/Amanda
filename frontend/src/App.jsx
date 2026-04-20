@@ -557,6 +557,7 @@ function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
                 <th>Ação</th>
                 <th>Score</th>
                 <th>Justificativa</th>
+                <th>Sugestão</th>
                 <th>Data</th>
               </tr>
             </thead>
@@ -577,6 +578,7 @@ function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
                   <td><ActionBadge action={p.analysis?.action} /></td>
                   <td>{p.analysis ? <ScoreDots score={p.analysis.score} /> : "—"}</td>
                   <td className="ig-reasoning">{p.analysis?.reasoning || "—"}</td>
+                  <td className="ig-reasoning">{p.analysis?.suggestion || "—"}</td>
                   <td>{fmtDateFull(p.publishedAt)}</td>
                 </tr>
               ))}

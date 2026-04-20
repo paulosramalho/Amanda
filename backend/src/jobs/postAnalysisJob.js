@@ -22,13 +22,15 @@ Legenda: ${post.caption ? `"${post.caption.slice(0, 400)}"` : "(sem legenda)"}
 Curtidas: ${post.likeCount} | Comentários: ${post.commentsCount} | Alcance: ${post.reach ?? "N/D"} | Impressões: ${post.impressions ?? "N/D"} | Salvamentos: ${post.saved ?? "N/D"} | Compartilhamentos: ${post.shares ?? "N/D"}${post.plays != null ? ` | Visualizações: ${post.plays}` : ""}${engagementRate ? ` | Engajamento: ${engagementRate}%` : ""}
 
 Retorne SOMENTE JSON válido:
-{"action":"INVEST"|"REDIRECT"|"REMOVE"|"MONITOR"|"MAINTAIN","score":<1-10>,"reasoning":"<máx 120 chars em português>"}
+{"action":"INVEST"|"REDIRECT"|"REMOVE"|"MONITOR"|"MAINTAIN","score":<1-10>,"reasoning":"<máx 120 chars>","suggestion":"<ação concreta e específica para este post, máx 160 chars em português>"}
 
-INVEST=alto engajamento, impulsionar com ads. REDIRECT=alcance ok mas engajamento baixo, mudar abordagem. REMOVE=performance ruim, prejudica perfil. MONITOR=post recente (<5 dias) ou dados insuficientes. MAINTAIN=performance média, nada urgente.`;
+INVEST=alto engajamento, impulsionar com ads. REDIRECT=alcance ok mas engajamento baixo, mudar abordagem. REMOVE=performance ruim, prejudica perfil. MONITOR=post recente (<5 dias) ou dados insuficientes. MAINTAIN=performance média, nada urgente.
+suggestion deve ser uma instrução direta: ex. "Impulsione com público de mulheres empreendedoras 25-45 anos, orçamento R$30/dia por 5 dias" ou "Refaça o carrossel com CTA explícito: 'Agende uma consulta gratuita'"`;
+
 
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 200,
+    max_tokens: 300,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -62,8 +64,8 @@ export async function runPostAnalysisJob({ triggeredBy = "manual", forceReanalyz
       const result = await analyzePost(client, post);
       await prisma.postAnalysis.upsert({
         where: { postId: post.id },
-        create: { postId: post.id, action: result.action, score: result.score, reasoning: result.reasoning, analyzedAt: new Date() },
-        update: { action: result.action, score: result.score, reasoning: result.reasoning, analyzedAt: new Date() },
+        create: { postId: post.id, action: result.action, score: result.score, reasoning: result.reasoning, suggestion: result.suggestion || null, analyzedAt: new Date() },
+        update: { action: result.action, score: result.score, reasoning: result.reasoning, suggestion: result.suggestion || null, analyzedAt: new Date() },
       });
       analyzed++;
     } catch (e) {

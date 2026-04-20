@@ -114,6 +114,7 @@ model PostAnalysis {
   action     String
   score      Int
   reasoning  String
+  suggestion String?
   analyzedAt DateTime      @default(now()) @map("analyzed_at")
 
   @@map("post_analyses")
