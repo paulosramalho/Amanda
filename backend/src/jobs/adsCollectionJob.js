@@ -9,7 +9,7 @@ import {
 import { collectGoogleAdsCampaignMetrics } from "./ads/providers/googleAds.js";
 import { collectMetaAdsCampaignMetrics } from "./ads/providers/metaAds.js";
 
-const ADS_COLLECTION_JOB_NAME = "ads_collection_daily";
+const ADS_COLLECTION_JOB_NAME = "ads_collection";
 
 function toInteger(value, defaultValue = 0) {
   const parsed = Number.parseInt(String(value ?? defaultValue), 10);
