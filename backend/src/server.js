@@ -159,11 +159,10 @@ app.get("/jobs/ads-collection/google-auth-check", handleGoogleAuthCheck);
 app.post("/jobs/ads-collection/google-auth-check", handleGoogleAuthCheck);
 
 app.post("/jobs/ads-collection/run", async (req, res) => {
-  if (!isJobRunnerAuthorized(req)) {
-    res.status(401).json({
-      ok: false,
-      message: "Unauthorized job execution",
-    });
+  const jwtHeader = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : null;
+  const isJwt = jwtHeader ? (() => { try { jwt.verify(jwtHeader, process.env.JWT_SECRET || "amr-ads-secret"); return true; } catch { return false; } })() : false;
+  if (!isJwt && !isJobRunnerAuthorized(req)) {
+    res.status(401).json({ ok: false, message: "Unauthorized job execution" });
     return;
   }
 
