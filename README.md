@@ -60,6 +60,7 @@ Amanda/
 | POST | `/jobs/trending-suggestions/run` | Varre RSS e gera sugestões de tendência |
 | PATCH | `/content-suggestions/:id` | Atualiza status de sugestão (PENDING/DONE/DISMISSED) |
 | POST | `/jobs/instagram-notify/test` | Envia e-mail de teste de análise |
+| POST | `/jobs/admin-alert/test` | Dispara alerta crítico de teste (e-mail + Telegram) |
 
 ### Utilitários
 | Método | Rota | Descrição |
@@ -156,6 +157,9 @@ Ver `backend/.env` para desenvolvimento local e `docs/PLANO_STATUS.md` para prod
 | `INSTAGRAM_NOTIFY_EMAILS` | `amandaramalhoadv@gmail.com` |
 | `RESEND_API_KEY` | Envio de e-mails via Resend |
 | `SITE_SECRET` | Segredo compartilhado com o site |
+| `ADMIN_ALERT_EMAILS` | E-mails para alertas críticos (vírgula-separados) |
+| `TELEGRAM_BOT_TOKEN` | Token do bot Telegram para alertas críticos |
+| `TELEGRAM_CHAT_ID` | Chat ID do Telegram que recebe os alertas |
 
 ---
 
@@ -164,3 +168,4 @@ Ver `backend/.env` para desenvolvimento local e `docs/PLANO_STATUS.md` para prod
 - **Timezone:** UTC-3 (America/Belem). Toda lógica de "hoje" usa `toBusinessDateAtNoon()`.
 - **Data de negócio:** `YYYY-MM-DDT12:00:00Z` (meio-dia UTC = 09h BRT — evita cruzamento de dia).
 - **Token Instagram:** expira em ~60 dias. Alerta por e-mail a partir de 45 dias de uso.
+- **Alertas críticos:** falhas de token ou coleta disparam e-mail (`ADMIN_ALERT_EMAILS`) + mensagem no Telegram (`TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`) com passos de correção.

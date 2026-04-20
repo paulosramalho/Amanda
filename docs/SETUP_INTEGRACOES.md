@@ -1,6 +1,6 @@
 # Setup de Integrações — Amanda Ads App
 
-Atualizado em: 19/04/2026
+Atualizado em: 19/04/2026 (tokens e alertas críticos)
 
 ---
 
@@ -94,17 +94,19 @@ Atualizado em: 19/04/2026
 | Item | Valor |
 |------|-------|
 | ENV | INSTAGRAM_ACCESS_TOKEN |
-| Permissões | `instagram_business_basic`, `instagram_manage_comments` |
-| App | AMR Controles (Meta for Developers — use case: "Gerenciar mensagens e conteúdo no Instagram") |
+| Permissões | `instagram_basic`, `instagram_manage_comments` |
+| App | AMR Ads Connector (ID: 2022860615281558) |
 | Gerado em | 19/04/2026 (via Graph API Explorer) |
 | Expira em | ~19/06/2026 (60 dias) |
 | Alerta automático | A partir de 45 dias de uso (ENV: INSTAGRAM_TOKEN_ISSUED_DATE) |
 
 ### Como renovar o token
-1. Acessar Graph API Explorer com app `AMR Controles`
-2. Adicionar permissões: `instagram_business_basic`, `instagram_manage_comments`
-3. Gerar token e copiar para `INSTAGRAM_ACCESS_TOKEN` no Render
-4. Atualizar `INSTAGRAM_TOKEN_ISSUED_DATE` para a data atual no Render
+1. Acessar Graph API Explorer: https://developers.facebook.com/tools/explorer/
+2. Selecionar app `AMR Ads Connector`
+3. Adicionar permissões: `instagram_basic`, `instagram_manage_comments`
+4. Gerar token e copiar para `INSTAGRAM_ACCESS_TOKEN` no Render
+5. Atualizar `INSTAGRAM_TOKEN_ISSUED_DATE` para a data atual no Render
+6. O Render fará redeploy automático
 
 ### Dados coletados por post
 - caption, mediaType, likeCount, commentsCount, publishedAt, permalink
@@ -149,6 +151,7 @@ Atualizado em: 19/04/2026
 | Token Instagram com 55+ dias | Banner urgente no e-mail de análise |
 | Anomalia em anúncios | Alerta de gasto/leads fora da média |
 | Segunda-feira (relatório semanal) | Relatório com KPIs da semana |
+| Token Instagram expirado (OAuthException) | "🔴 AMR Ads — Token Instagram expirado — ação necessária" |
 
 ---
 
@@ -168,6 +171,31 @@ Atualizado em: 19/04/2026
 
 ### Campos capturados do formulário
 nome, email, telefone, área de interesse (`campaignName`), urgência e mensagem (ambos em `notes`)
+
+---
+
+## Telegram (Alertas Críticos)
+
+### Configuração
+| Item | Valor |
+|------|-------|
+| Bot | AMR Alerts Bot |
+| ENV TOKEN | TELEGRAM_BOT_TOKEN — `8637747827:AAH...` |
+| ENV CHAT | TELEGRAM_CHAT_ID — `8746739304` |
+| Destinatário | paulosramalho@gmail.com (conta Telegram vinculada ao número) |
+
+### E-mails de alerta crítico
+| ENV | Valor |
+|-----|-------|
+| ADMIN_ALERT_EMAILS | paulosramalho@gmail.com,amandaramalhoadv@gmail.com |
+
+### Quando dispara
+- Token do Instagram expirado (`OAuthException` / erros 190, 467, 463 da Graph API)
+- Testável via `POST /jobs/admin-alert/test` (requer JWT)
+
+### Canais
+1. **E-mail** via Resend para todos os endereços em `ADMIN_ALERT_EMAILS`
+2. **Telegram** via Bot API para o chat `TELEGRAM_CHAT_ID`
 
 ---
 
