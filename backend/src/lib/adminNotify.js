@@ -54,21 +54,25 @@ export async function sendAdminAlert({ subject, title, body, steps = [] }) {
     results.email = { skipped: true, reason: !resend ? "RESEND_API_KEY ausente" : "ADMIN_ALERT_EMAILS não configurado" };
   }
 
-  // WhatsApp via CallMeBot
-  const waPhone = process.env.ADMIN_WHATSAPP_PHONE;
-  const waKey = process.env.CALLMEBOT_API_KEY;
-  if (waPhone && waKey) {
+  // Telegram
+  const tgToken = process.env.TELEGRAM_BOT_TOKEN;
+  const tgChatId = process.env.TELEGRAM_CHAT_ID;
+  if (tgToken && tgChatId) {
     try {
-      const text = encodeURIComponent(`🔴 AMR Ads\n${title}\n\n${body.slice(0, 300)}`);
-      const url = `https://api.callmebot.com/whatsapp.php?phone=${waPhone}&text=${text}&apikey=${waKey}`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      results.whatsapp = { sent: r.ok, status: r.status };
+      const text = `AMR Ads Control\n\n${title}\n\n${body.replace(/<[^>]*>/g, "").slice(0, 300)}`;
+      const r = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ chat_id: Number(tgChatId), text }),
+        signal: AbortSignal.timeout(10000),
+      });
+      results.telegram = { sent: r.ok, status: r.status };
     } catch (e) {
-      console.error("[admin-notify] WhatsApp failed:", e.message);
-      results.whatsapp = { sent: false, error: e.message };
+      console.error("[admin-notify] Telegram failed:", e.message);
+      results.telegram = { sent: false, error: e.message };
     }
   } else {
-    results.whatsapp = { skipped: true, reason: "ADMIN_WHATSAPP_PHONE ou CALLMEBOT_API_KEY não configurados" };
+    results.telegram = { skipped: true, reason: "TELEGRAM_BOT_TOKEN ou TELEGRAM_CHAT_ID não configurados" };
   }
 
   return results;

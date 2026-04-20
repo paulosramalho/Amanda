@@ -32,7 +32,7 @@
         sync: false
       - key: ADMIN_ALERT_EMAILS
         value: "paulosramalho@gmail.com,amandaramalhoadv@gmail.com"
-      - key: ADMIN_WHATSAPP_PHONE
-        value: "5591981348026"
-      - key: CALLMEBOT_API_KEY
+      - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: TELEGRAM_CHAT_ID
+        value: "8746739304"
