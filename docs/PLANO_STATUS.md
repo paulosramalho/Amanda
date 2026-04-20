@@ -43,8 +43,10 @@ Protegido por JWT (`DASHBOARD_PASSWORD`). Abas:
 - **Visão Geral:** KPIs (7/14/30 dias), meta mensal, cards por plataforma, gráfico gasto×leads, tabela de campanhas
 - **Relatório Semanal:** análise semanal com navegação entre semanas
 - **Leads:** registro de leads (manual + site), com e-mail, urgência, necessidade e status editável
-- **Conteúdo:** posts coletados com análise (ação, score, justificativa, sugestão), filtro por ação, tabela de sugestões geradas pelos agentes
-- **Agentes:** status e data/hora da última execução de cada agente
+- **Conteúdo:** duas sub-abas:
+  - *Conteúdo:* posts coletados com análise (ação, score, justificativa, sugestão) e filtro por ação
+  - *Sugestão de Conteúdo:* sugestões geradas pelos agentes com status editável (Pendente/Feito/Ignorado)
+- **Agentes:** status, mensagem de erro detalhada e botão **Executar** por agente para disparo manual
 
 ---
 

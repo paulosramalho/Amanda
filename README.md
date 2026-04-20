@@ -50,7 +50,7 @@ Amanda/
 ### Jobs (requer JWT)
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| POST | `/jobs/ads-collection/run` | Dispara coleta de anúncios manualmente |
+| POST | `/jobs/ads-collection/run` | Dispara coleta de anúncios manualmente (aceita JWT ou `JOB_RUNNER_API_KEY`) |
 | GET | `/jobs/ads-collection/config` | Configuração atual do scheduler de anúncios |
 | GET | `/jobs/ads-collection/recent` | Execuções recentes |
 | POST | `/jobs/instagram-collection/run` | Coleta posts do Instagram manualmente |
@@ -115,6 +115,18 @@ npm run prisma:generate
 npm run prisma:migrate:dev
 npm run prisma:migrate:deploy
 ```
+
+---
+
+## Frontend — Abas do dashboard
+
+| Aba | Conteúdo |
+|-----|----------|
+| Visão Geral | KPIs (7/14/30 dias), meta mensal, cards por plataforma, gráfico gasto×leads, tabela de campanhas |
+| Relatório Semanal | Análise semanal com navegação entre semanas |
+| Leads | Registro de leads (manual + site) — e-mail, urgência, necessidade, status editável |
+| Conteúdo | Sub-aba **Conteúdo:** posts com ação, score, justificativa, sugestão e filtro por ação. Sub-aba **Sugestão de Conteúdo:** sugestões dos agentes com status editável |
+| Agentes | Status, mensagem de erro e botão **Executar** para disparo manual de cada agente |
 
 ---
 
