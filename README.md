@@ -1,60 +1,166 @@
 # Amanda Ads App
 
-MVP para monitoramento de Google Ads, Meta Ads e Instagram Ads.
+Painel de controle para monitoramento de anúncios (Google Ads, Meta Ads), conteúdo orgânico do Instagram (@amandamramalho) e gestão de leads — com agentes de IA para análise e sugestão de conteúdo.
 
-## Estrutura
-- `backend/`: API Node.js (Express + Prisma), deploy no Render.
-- `frontend/`: app Vite + React, deploy na Vercel.
-- `docs/PLANO_STATUS.md`: plano geral de implantacao e status por passo.
+## Estrutura do repositório
 
-## Endpoints backend
-- `GET /`
-- `GET /health`
-- `GET /health/db`
-- `GET /business-date`
-- `GET /jobs/ads-collection/config`
-- `POST /jobs/ads-collection/run`
-- `GET /jobs/ads-collection/recent`
-- `GET /campaigns/daily`
+```
+Amanda/
+├── backend/          # API Node.js (Express + Prisma) — deploy no Render
+├── frontend/         # App Vite + React — deploy na Vercel
+└── docs/
+    ├── PLANO_STATUS.md         # status de implantação e ENVs de produção
+    └── SETUP_INTEGRACOES.md    # contas, IDs, OAuth e tokens por integração
+```
 
-## Coleta automatica Ads
-- Providers implementados:
-  - Google Ads (`backend/src/jobs/ads/providers/googleAds.js`)
-  - Meta Ads / Instagram Ads (`backend/src/jobs/ads/providers/metaAds.js`)
-- Job central: `backend/src/jobs/adsCollectionJob.js`
-- Scheduler interno: `backend/src/jobs/adsScheduler.js`
-- Registro de execucao em `jobs_execucao`
-- Persistencia diaria em `campanhas_diarias`
-- Google Ads OAuth recomendado:
-  - `GOOGLE_ADS_CLIENT_ID`
-  - `GOOGLE_ADS_CLIENT_SECRET`
-  - `GOOGLE_ADS_REFRESH_TOKEN`
-  - o backend gera `access_token` automaticamente em runtime
+---
 
-## Deploy backend (Render)
+## Backend — Endpoints
+
+### Autenticação
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/auth/login` | Retorna JWT (body: `{ password }`) |
+
+### Dashboard (requer JWT)
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/dashboard/summary` | KPIs do período (`?days=`) |
+| GET | `/dashboard/daily` | Série diária (`?days=`) |
+| GET | `/dashboard/campaigns` | Campanhas do período |
+| GET | `/dashboard/campaigns/:platform/:id/daily` | Detalhe diário de campanha |
+| GET | `/dashboard/weekly-reports` | Lista relatórios semanais |
+| GET | `/dashboard/monthly-goal` | Meta mensal (`?month=YYYY-MM`) |
+| GET | `/dashboard/instagram-posts` | Posts coletados com análise |
+| GET | `/dashboard/content-suggestions` | Sugestões de conteúdo geradas pelos agentes |
+| GET | `/dashboard/agents` | Status e última execução de cada agente |
+
+### Leads (requer JWT)
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/leads` | Lista leads |
+| POST | `/leads` | Cria lead manual |
+| PATCH | `/leads/:id` | Atualiza status do lead |
+
+### Integração site → leads
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/api/site/lead` | Cria lead vindo do formulário do site (requer `x-site-secret`) |
+
+### Jobs (requer JWT)
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/jobs/ads-collection/run` | Dispara coleta de anúncios manualmente |
+| GET | `/jobs/ads-collection/config` | Configuração atual do scheduler de anúncios |
+| GET | `/jobs/ads-collection/recent` | Execuções recentes |
+| POST | `/jobs/instagram-collection/run` | Coleta posts do Instagram manualmente |
+| POST | `/jobs/post-analysis/run` | Analisa posts com Claude (body: `{ forceReanalyze }`) |
+| POST | `/jobs/populate-suggestions/run` | Preenche campo `suggestion` sem reclassificar ação |
+| POST | `/jobs/content-suggestions/run` | Gera sugestões baseadas no histórico do perfil |
+| POST | `/jobs/trending-suggestions/run` | Varre RSS e gera sugestões de tendência |
+| PATCH | `/content-suggestions/:id` | Atualiza status de sugestão (PENDING/DONE/DISMISSED) |
+| POST | `/jobs/instagram-notify/test` | Envia e-mail de teste de análise |
+
+### Utilitários
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/` | Mapa de rotas |
+| GET | `/health` | Health check |
+| GET | `/health/db` | Health check do banco |
+| GET | `/business-date` | Data de negócio atual (UTC-3) |
+
+---
+
+## Agentes de IA
+
+Todos os agentes rodam automaticamente às 01h BRT via scheduler interno (`instagramScheduler.js`):
+
+| Agente | Job Name | O que faz |
+|--------|----------|-----------|
+| Coletor de Posts | `instagram_collection` | Coleta posts e métricas do @amandamramalho via Instagram Graph API |
+| Analisador de Posts | `post_analysis` | Avalia qualidade com Claude Haiku — ação (INVEST/REDIRECT/REMOVE/MONITOR/MAINTAIN), score 1-10, justificativa e sugestão |
+| Sugestor de Conteúdo | `content_suggestions` | Analisa histórico do perfil e sugere 7 novos temas/formatos |
+| Agente de Tendências | `trending_suggestions` | Varre RSS de Conjur, JOTA e Migalhas — sugere 6 posts sobre pautas em alta |
+| Notificador | `instagram_notify` | Envia e-mail com posts INVEST/REMOVE e alerta de renovação de token |
+| Coletor de Anúncios | `ads_collection` | Coleta métricas diárias de Google Ads e Meta Ads (15h UTC) |
+
+---
+
+## Banco de dados (Neon + Prisma)
+
+**Schema:** `backend/prisma/schema.prisma`
+
+### Modelos principais
+| Modelo | Tabela | Descrição |
+|--------|--------|-----------|
+| `CampaignDaily` | `campanhas_diarias` | Métricas diárias por campanha/plataforma |
+| `JobExecution` | `jobs_execucao` | Registro de execuções de todos os agentes |
+| `Lead` | `leads` | Leads manuais e do formulário do site |
+| `WeeklyReport` | `weekly_reports` | Relatórios semanais gerados automaticamente |
+| `MonthlyGoal` | `monthly_goals` | Meta mensal de gasto e leads |
+| `InstagramPost` | `instagram_posts` | Posts coletados do @amandamramalho |
+| `PostAnalysis` | `post_analyses` | Análise de cada post (ação, score, reasoning, suggestion) |
+| `ContentSuggestion` | `content_suggestions` | Sugestões de conteúdo geradas pelos agentes |
+
+### Enums
+- `LeadSource`: GOOGLE_ADS, META_ADS, INSTAGRAM_ADS, ORGANIC, REFERRAL, SITE, OTHER
+- `LeadStatus`: NEW, CONTACTED, QUALIFIED, WON, LOST, ARCHIVED
+- `ContentFormat`: POST, CAROUSEL, STORIES, REEL
+- `ContentSuggestionStatus`: PENDING, DONE, DISMISSED
+
+### Scripts
+```bash
+npm run prisma:generate
+npm run prisma:migrate:dev
+npm run prisma:migrate:deploy
+```
+
+---
+
+## Deploy
+
+### Backend (Render)
 - Root Directory: `backend`
 - Build Command: `npm install`
 - Start Command: `npm run start`
 
-## Deploy frontend (Vercel)
-- Framework: `Vite`
+### Frontend (Vercel)
+- Framework: Vite
 - Root Directory: `frontend`
 - Build Command: `npm run build`
 - Output Directory: `dist`
-- Install Command: `npm install`
-- Env var: `VITE_API_BASE_URL=https://amanda-api.onrender.com`
+- Env var obrigatória: `VITE_API_BASE_URL=https://amanda-api.onrender.com`
 
-## Banco de dados (Neon + Prisma)
-- Prisma schema: `backend/prisma/schema.prisma`
-- Migration inicial: `backend/prisma/migrations/20260408023000_init/migration.sql`
-- Scripts:
-  - `npm run prisma:generate`
-  - `npm run prisma:migrate:dev`
-  - `npm run prisma:migrate:deploy`
+### Site (Vercel — repositório separado: controles-amr)
+- Projeto: `amandaramalho.adv.br`
+- Env vars obrigatórias: `BACKEND_URL=https://amanda-api.onrender.com`, `SITE_SECRET=<igual ao Render>`
 
-## Variaveis de ambiente
-- Backend: usar `backend/.env.example`
-- Frontend: usar `frontend/.env.example`
+---
 
-## Regra de datas de negocio
-- Usar sempre `UTC-3 T12:00:00` (`YYYY-MM-DDT12:00:00-03:00`).
+## Variáveis de ambiente
+
+Ver `backend/.env` para desenvolvimento local e `docs/PLANO_STATUS.md` para produção.
+
+### Variáveis críticas de produção (Render)
+| Variável | Descrição |
+|----------|-----------|
+| `DATABASE_URL` | Neon PostgreSQL (pooler) |
+| `JWT_SECRET` | Segredo dos tokens JWT |
+| `DASHBOARD_PASSWORD` | Senha do painel |
+| `ANTHROPIC_API_KEY` | Claude Haiku para análise de posts |
+| `INSTAGRAM_ACCESS_TOKEN` | Token Instagram Graph API (~60 dias) |
+| `INSTAGRAM_USER_ID` | `17841401371420027` (@amandamramalho) |
+| `INSTAGRAM_TOKEN_ISSUED_DATE` | Data de emissão do token (YYYY-MM-DD) |
+| `INSTAGRAM_SCHEDULER_ENABLED` | `true` |
+| `INSTAGRAM_RUN_UTC_HOUR` | `4` (01h BRT) |
+| `INSTAGRAM_NOTIFY_EMAILS` | `amandaramalhoadv@gmail.com` |
+| `RESEND_API_KEY` | Envio de e-mails via Resend |
+| `SITE_SECRET` | Segredo compartilhado com o site |
+
+---
+
+## Regras de negócio
+
+- **Timezone:** UTC-3 (America/Belem). Toda lógica de "hoje" usa `toBusinessDateAtNoon()`.
+- **Data de negócio:** `YYYY-MM-DDT12:00:00Z` (meio-dia UTC = 09h BRT — evita cruzamento de dia).
+- **Token Instagram:** expira em ~60 dias. Alerta por e-mail a partir de 45 dias de uso.
