@@ -538,9 +538,9 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
   const pendingCount = suggestions.filter((s) => s.status === "PENDING").length;
 
   return (
-    <div className="leads-tab">
-      <div className="leads-header">
-        <div className="period-tabs">
+    <div className="leads-tab" style={{ height: "calc(100vh - 104px)", display: "flex", flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" }}>
+      <div className="leads-header" style={{ flexShrink: 0, padding: "16px 24px", borderBottom: "1px solid #f1f5f9" }}>
+        <div className="period-tabs" style={{ background: "#f1f5f9" }}>
           <button className={`period-tab${subTab === "content" ? " active" : ""}`} onClick={() => setSubTab("content")} type="button">
             Conteúdo {posts.length > 0 ? `(${posts.length})` : ""}
           </button>
@@ -565,6 +565,7 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
         )}
       </div>
 
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
       {subTab === "content" && (
         posts.length === 0 ? (
           <div className="empty-chart">Nenhum post coletado. Clique em "Coletar posts" para iniciar.</div>
@@ -651,6 +652,7 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
           </div>
         )
       )}
+      </div>
     </div>
   );
 }
