@@ -22,6 +22,7 @@ import { runInstagramCollectionJob } from "./jobs/instagramCollectionJob.js";
 import { runPostAnalysisJob } from "./jobs/postAnalysisJob.js";
 import { runPopulateSuggestionsJob } from "./jobs/populateSuggestionsJob.js";
 import { runContentSuggestionsJob } from "./jobs/contentSuggestionsJob.js";
+import { runTrendingSuggestionsJob } from "./jobs/trendingSuggestionsJob.js";
 import { startInstagramScheduler, stopInstagramScheduler, runInstagramCycle } from "./jobs/instagramScheduler.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
 
@@ -667,6 +668,15 @@ app.post("/jobs/populate-suggestions/run", requireAuth, async (req, res) => {
 app.post("/jobs/content-suggestions/run", requireAuth, async (req, res) => {
   try {
     const result = await runContentSuggestionsJob({ triggeredBy: "http" });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/jobs/trending-suggestions/run", requireAuth, async (req, res) => {
+  try {
+    const result = await runTrendingSuggestionsJob({ triggeredBy: "http" });
     res.json(result);
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });

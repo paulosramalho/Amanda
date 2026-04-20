@@ -531,7 +531,7 @@ const FORMAT_COLOR = { POST: "#2563eb", CAROUSEL: "#7c3aed", STORIES: "#db2777",
 const SUGGESTION_STATUS_LABEL = { PENDING: "Pendente", DONE: "Feito", DISMISSED: "Descartado" };
 const SUGGESTION_STATUS_COLOR = { PENDING: "#2563eb", DONE: "#059669", DISMISSED: "#94a3b8" };
 
-function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onRunSuggestions, onSuggestionStatus, running }) {
+function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onRunSuggestions, onRunTrending, onSuggestionStatus, running }) {
   const [filterAction, setFilterAction] = useState("ALL");
   const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
 
@@ -551,8 +551,11 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onRu
           <button className="btn-secondary" onClick={onRunAnalysis} disabled={running || posts.length === 0} type="button">
             {running === "analysis" ? "Analisando…" : "Analisar"}
           </button>
-          <button className="btn-primary" onClick={onRunSuggestions} disabled={running || posts.length === 0} type="button">
+          <button className="btn-secondary" onClick={onRunSuggestions} disabled={running || posts.length === 0} type="button">
             {running === "suggestions" ? "Gerando…" : "✦ Sugerir temas"}
+          </button>
+          <button className="btn-primary" onClick={onRunTrending} disabled={running} type="button">
+            {running === "trending" ? "Varrendo…" : "🔍 Varrer tendências"}
           </button>
         </div>
       </div>
@@ -829,6 +832,20 @@ export default function App() {
     }
   }
 
+  async function handleTrending() {
+    setIgRunning("trending");
+    try {
+      const res = await apiFetch("/jobs/trending-suggestions/run", { method: "POST" });
+      const d = await res.json();
+      if (d.ok) {
+        const cs = await apiFetch("/dashboard/content-suggestions").then((r) => r.json());
+        if (cs.ok) setIgSuggestions(cs.suggestions || []);
+      }
+    } finally {
+      setIgRunning(null);
+    }
+  }
+
   async function handleSuggestionStatus(id, status) {
     const res = await apiFetch(`/content-suggestions/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
     if (res.ok) {
@@ -1002,6 +1019,7 @@ export default function App() {
             onRunCollection={handleIgCollection}
             onRunAnalysis={handleIgAnalysis}
             onRunSuggestions={handleIgSuggestions}
+            onRunTrending={handleTrending}
             onSuggestionStatus={handleSuggestionStatus}
             running={igRunning}
           />
