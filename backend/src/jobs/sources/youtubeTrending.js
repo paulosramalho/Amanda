@@ -1,14 +1,15 @@
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
 const QUERIES = [
-  "direito advocacia",
-  "STF decisão",
-  "OAB advogado",
-  "LGPD proteção dados",
-  "direito trabalhista",
-  "direito do consumidor",
-  "contrato empresarial",
+  "direito trabalhista 2025",
+  "STF decisão jurídica",
+  "LGPD proteção dados empresa",
+  "direito do consumidor dicas",
+  "contrato empresarial cuidados",
 ];
+
+// Termos que indicam conteúdo de entretenimento/meme — não úteis para sugestão de pauta
+const EXCLUDE_TERMS = ["meme", "humor", "engraçad", "🤣", "😂", "react", "reagindo", "choque", "ESCÂNDALO", "🚨"];
 
 async function searchQuery(apiKey, q) {
   const since = new Date();
@@ -55,9 +56,10 @@ export async function fetchYoutubeTrending() {
     .filter((r) => r.status === "fulfilled")
     .flatMap((r) => r.value);
 
-  // Dedup por similaridade de início de string
+  // Remove memes/entretenimento e faz dedup
   const seen = new Set();
   return titles.filter((t) => {
+    if (EXCLUDE_TERMS.some((term) => t.toLowerCase().includes(term.toLowerCase()))) return false;
     const key = t.slice(0, 40).toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
