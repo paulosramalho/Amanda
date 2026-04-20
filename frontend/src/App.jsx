@@ -532,77 +532,91 @@ const SUGGESTION_STATUS_LABEL = { PENDING: "Pendente", DONE: "Feito", DISMISSED:
 const SUGGESTION_STATUS_COLOR = { PENDING: "#2563eb", DONE: "#059669", DISMISSED: "#94a3b8" };
 
 function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSuggestionStatus, running }) {
+  const [subTab, setSubTab] = useState("content");
   const [filterAction, setFilterAction] = useState("ALL");
   const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
+  const pendingCount = suggestions.filter((s) => s.status === "PENDING").length;
 
   return (
     <div className="leads-tab">
       <div className="leads-header">
-        <h2 className="section-title" style={{ margin: 0 }}>Conteúdo — @amandamramalho ({filtered.length}/{posts.length})</h2>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <select className="status-select" value={filterAction} onChange={(e) => setFilterAction(e.target.value)}
-            style={{ color: filterAction === "ALL" ? "#475569" : ACTION_COLOR[filterAction], fontWeight: 600 }}>
-            <option value="ALL">Todas as ações</option>
-            {Object.entries(ACTION_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-          <button className="btn-secondary" onClick={onRunCollection} disabled={running} type="button">
-            {running === "collection" ? "Coletando…" : "Coletar posts"}
+        <div className="period-tabs">
+          <button className={`period-tab${subTab === "content" ? " active" : ""}`} onClick={() => setSubTab("content")} type="button">
+            Conteúdo {posts.length > 0 ? `(${posts.length})` : ""}
           </button>
-          <button className="btn-secondary" onClick={onRunAnalysis} disabled={running || posts.length === 0} type="button">
-            {running === "analysis" ? "Analisando…" : "Analisar"}
+          <button className={`period-tab${subTab === "suggestions" ? " active" : ""}`} onClick={() => setSubTab("suggestions")} type="button">
+            Sugestão de Conteúdo {pendingCount > 0 ? `(${pendingCount})` : ""}
           </button>
         </div>
+        {subTab === "content" && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select className="status-select" value={filterAction} onChange={(e) => setFilterAction(e.target.value)}
+              style={{ color: filterAction === "ALL" ? "#475569" : ACTION_COLOR[filterAction], fontWeight: 600 }}>
+              <option value="ALL">Todas as ações</option>
+              {Object.entries(ACTION_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+            <button className="btn-secondary" onClick={onRunCollection} disabled={running} type="button">
+              {running === "collection" ? "Coletando…" : "Coletar posts"}
+            </button>
+            <button className="btn-secondary" onClick={onRunAnalysis} disabled={running || posts.length === 0} type="button">
+              {running === "analysis" ? "Analisando…" : "Analisar"}
+            </button>
+          </div>
+        )}
       </div>
 
-      {posts.length === 0 ? (
-        <div className="empty-chart">Nenhum post coletado. Clique em "Coletar posts" para iniciar.</div>
-      ) : (
-        <div className="table-wrap">
-          <table className="camp-table">
-            <thead>
-              <tr>
-                <th>Post</th>
-                <th>Tipo</th>
-                <th className="num">Curtidas</th>
-                <th className="num">Comentários</th>
-                <th className="num">Alcance</th>
-                <th className="num">Salvamentos</th>
-                <th>Ação</th>
-                <th>Score</th>
-                <th>Justificativa</th>
-                <th>Sugestão</th>
-                <th>Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id}>
-                  <td className="camp-name">
-                    {p.permalink
-                      ? <a href={p.permalink} target="_blank" rel="noreferrer" className="ig-link">{p.caption ? p.caption.slice(0, 60) + (p.caption.length > 60 ? "…" : "") : "(sem legenda)"}</a>
-                      : <span>{p.caption ? p.caption.slice(0, 60) : "(sem legenda)"}</span>
-                    }
-                  </td>
-                  <td><MediaTypeBadge type={p.mediaType} /></td>
-                  <td className="num">{p.likeCount.toLocaleString("pt-BR")}</td>
-                  <td className="num">{p.commentsCount.toLocaleString("pt-BR")}</td>
-                  <td className="num">{p.reach != null ? p.reach.toLocaleString("pt-BR") : "—"}</td>
-                  <td className="num">{p.saved != null ? p.saved.toLocaleString("pt-BR") : "—"}</td>
-                  <td><ActionBadge action={p.analysis?.action} /></td>
-                  <td>{p.analysis ? <ScoreDots score={p.analysis.score} /> : "—"}</td>
-                  <td className="ig-reasoning">{p.analysis?.reasoning || "—"}</td>
-                  <td className="ig-reasoning">{p.analysis?.suggestion || "—"}</td>
-                  <td>{fmtDateFull(p.publishedAt)}</td>
+      {subTab === "content" && (
+        posts.length === 0 ? (
+          <div className="empty-chart">Nenhum post coletado. Clique em "Coletar posts" para iniciar.</div>
+        ) : (
+          <div className="table-wrap">
+            <table className="camp-table">
+              <thead>
+                <tr>
+                  <th>Post</th>
+                  <th>Tipo</th>
+                  <th className="num">Curtidas</th>
+                  <th className="num">Comentários</th>
+                  <th className="num">Alcance</th>
+                  <th className="num">Salvamentos</th>
+                  <th>Ação</th>
+                  <th>Score</th>
+                  <th>Justificativa</th>
+                  <th>Sugestão</th>
+                  <th>Data</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr key={p.id}>
+                    <td className="camp-name">
+                      {p.permalink
+                        ? <a href={p.permalink} target="_blank" rel="noreferrer" className="ig-link">{p.caption ? p.caption.slice(0, 60) + (p.caption.length > 60 ? "…" : "") : "(sem legenda)"}</a>
+                        : <span>{p.caption ? p.caption.slice(0, 60) : "(sem legenda)"}</span>
+                      }
+                    </td>
+                    <td><MediaTypeBadge type={p.mediaType} /></td>
+                    <td className="num">{p.likeCount.toLocaleString("pt-BR")}</td>
+                    <td className="num">{p.commentsCount.toLocaleString("pt-BR")}</td>
+                    <td className="num">{p.reach != null ? p.reach.toLocaleString("pt-BR") : "—"}</td>
+                    <td className="num">{p.saved != null ? p.saved.toLocaleString("pt-BR") : "—"}</td>
+                    <td><ActionBadge action={p.analysis?.action} /></td>
+                    <td>{p.analysis ? <ScoreDots score={p.analysis.score} /> : "—"}</td>
+                    <td className="ig-reasoning">{p.analysis?.reasoning || "—"}</td>
+                    <td className="ig-reasoning">{p.analysis?.suggestion || "—"}</td>
+                    <td>{fmtDateFull(p.publishedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
 
-      {suggestions.length > 0 && (
-        <div style={{ marginTop: 32 }}>
-          <h3 className="section-title" style={{ fontSize: 14, marginBottom: 12 }}>✦ Sugestões de Conteúdo ({suggestions.filter(s => s.status === "PENDING").length} pendentes)</h3>
+      {subTab === "suggestions" && (
+        suggestions.length === 0 ? (
+          <div className="empty-chart">Nenhuma sugestão gerada ainda. Os agentes rodam automaticamente às 01h BRT.</div>
+        ) : (
           <div className="table-wrap">
             <table className="camp-table">
               <thead>
@@ -635,7 +649,7 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
               </tbody>
             </table>
           </div>
-        </div>
+        )
       )}
     </div>
   );
