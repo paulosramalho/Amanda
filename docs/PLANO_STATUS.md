@@ -77,6 +77,9 @@ Protegido por JWT (`DASHBOARD_PASSWORD`). Abas:
 | INSTAGRAM_NOTIFY_EMAILS | ✅ | amandaramalhoadv@gmail.com |
 | INSTAGRAM_TOKEN_ISSUED_DATE | ✅ | 2026-04-19 |
 | SITE_SECRET | ✅ | Compartilhado com Vercel do site |
+| ADMIN_ALERT_EMAILS | ✅ | paulosramalho@gmail.com,amandaramalhoadv@gmail.com |
+| TELEGRAM_BOT_TOKEN | ✅ | Bot `AMR Alerts Bot` — alerta crítico por Telegram |
+| TELEGRAM_CHAT_ID | ✅ | 8746739304 |
 
 ### ENVs de produção (Vercel — site amandaramalho.adv.br)
 
