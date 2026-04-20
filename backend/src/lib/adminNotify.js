@@ -59,7 +59,10 @@ export async function sendAdminAlert({ subject, title, body, steps = [] }) {
   const tgChatId = process.env.TELEGRAM_CHAT_ID;
   if (tgToken && tgChatId) {
     try {
-      const text = `AMR Ads Control\n\n${title}\n\n${body.replace(/<[^>]*>/g, "").slice(0, 300)}`;
+      const stepsText = steps.length
+        ? "\n\nComo corrigir:\n" + steps.map((s, i) => `${i + 1}. ${s.replace(/<[^>]*>/g, "")}`).join("\n")
+        : "";
+      const text = `AMR Ads Control\n\n${title}\n\n${body.replace(/<[^>]*>/g, "").slice(0, 300)}${stepsText}`;
       const r = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json; charset=utf-8" },

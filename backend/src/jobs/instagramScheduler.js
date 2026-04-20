@@ -37,7 +37,7 @@ async function runFullCycle({ triggeredBy = "scheduler" } = {}) {
         title: "Token do Instagram expirado",
         body: `O token de acesso à conta @amandamramalho foi invalidado.\nErro: ${e.message.slice(0, 300)}`,
         steps: [
-          'Acesse <a href="https://developers.facebook.com/tools/explorer/">Graph API Explorer</a>',
+          'Acesse o Graph API Explorer: https://developers.facebook.com/tools/explorer/',
           "Selecione o app <strong>AMR Controles</strong>",
           "Adicione as permissões: <code>instagram_business_basic</code>, <code>instagram_manage_comments</code>",
           "Gere o token e cole em <strong>Render → amanda-api → Environment → INSTAGRAM_ACCESS_TOKEN</strong>",

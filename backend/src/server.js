@@ -739,8 +739,14 @@ app.post("/jobs/admin-alert/test", requireAuth, async (req, res) => {
     const result = await sendAdminAlert({
       subject: "🔴 AMR Ads — Teste de alerta crítico",
       title: "Token do Instagram expirado (simulado)",
-      body: "Este é um teste do sistema de alerta de erros críticos.",
-      steps: ["Acesse o Graph API Explorer e gere um novo token", "Atualize INSTAGRAM_ACCESS_TOKEN no Render"],
+      body: "Este e um teste do sistema de alerta de erros criticos.",
+      steps: [
+        "Acesse o Graph API Explorer: https://developers.facebook.com/tools/explorer/",
+        "Selecione o app AMR Controles",
+        "Adicione as permissoes: instagram_business_basic, instagram_manage_comments",
+        "Gere o token e cole em Render → INSTAGRAM_ACCESS_TOKEN",
+        "Atualize INSTAGRAM_TOKEN_ISSUED_DATE para a data de hoje",
+      ],
     });
     res.json({ ok: true, ...result });
   } catch (error) {
