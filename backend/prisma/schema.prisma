@@ -120,6 +120,30 @@ model PostAnalysis {
   @@map("post_analyses")
 }
 
+enum ContentFormat {
+  POST
+  CAROUSEL
+  STORIES
+  REEL
+}
+
+enum ContentSuggestionStatus {
+  PENDING
+  DONE
+  DISMISSED
+}
+
+model ContentSuggestion {
+  id        String                  @id @default(cuid())
+  createdAt DateTime                @default(now()) @map("created_at")
+  theme     String
+  format    ContentFormat
+  reasoning String
+  status    ContentSuggestionStatus @default(PENDING)
+
+  @@map("content_suggestions")
+}
+
 model WeeklyReport {
   id                String    @id @default(cuid())
   createdAt         DateTime  @default(now()) @map("created_at")

@@ -21,6 +21,7 @@ import {
 import { runInstagramCollectionJob } from "./jobs/instagramCollectionJob.js";
 import { runPostAnalysisJob } from "./jobs/postAnalysisJob.js";
 import { runPopulateSuggestionsJob } from "./jobs/populateSuggestionsJob.js";
+import { runContentSuggestionsJob } from "./jobs/contentSuggestionsJob.js";
 import { startInstagramScheduler, stopInstagramScheduler, runInstagramCycle } from "./jobs/instagramScheduler.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
 
@@ -658,6 +659,39 @@ app.post("/jobs/populate-suggestions/run", requireAuth, async (req, res) => {
   try {
     const result = await runPopulateSuggestionsJob();
     res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/jobs/content-suggestions/run", requireAuth, async (req, res) => {
+  try {
+    const result = await runContentSuggestionsJob({ triggeredBy: "http" });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/dashboard/content-suggestions", async (req, res) => {
+  try {
+    const suggestions = await prisma.contentSuggestion.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ ok: true, suggestions });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.patch("/content-suggestions/:id", requireAuth, async (req, res) => {
+  try {
+    const { status } = req.body || {};
+    const updated = await prisma.contentSuggestion.update({
+      where: { id: req.params.id },
+      data: { status },
+    });
+    res.json({ ok: true, suggestion: updated });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
   }

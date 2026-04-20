@@ -526,7 +526,12 @@ function ScoreDots({ score }) {
   );
 }
 
-function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
+const FORMAT_LABEL = { POST: "Post", CAROUSEL: "Carrossel", STORIES: "Stories", REEL: "Reel" };
+const FORMAT_COLOR = { POST: "#2563eb", CAROUSEL: "#7c3aed", STORIES: "#db2777", REEL: "#ea580c" };
+const SUGGESTION_STATUS_LABEL = { PENDING: "Pendente", DONE: "Feito", DISMISSED: "Descartado" };
+const SUGGESTION_STATUS_COLOR = { PENDING: "#2563eb", DONE: "#059669", DISMISSED: "#94a3b8" };
+
+function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onRunSuggestions, onSuggestionStatus, running }) {
   const [filterAction, setFilterAction] = useState("ALL");
   const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
 
@@ -543,8 +548,11 @@ function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
           <button className="btn-secondary" onClick={onRunCollection} disabled={running} type="button">
             {running === "collection" ? "Coletando…" : "Coletar posts"}
           </button>
-          <button className="btn-primary" onClick={onRunAnalysis} disabled={running || posts.length === 0} type="button">
+          <button className="btn-secondary" onClick={onRunAnalysis} disabled={running || posts.length === 0} type="button">
             {running === "analysis" ? "Analisando…" : "Analisar"}
+          </button>
+          <button className="btn-primary" onClick={onRunSuggestions} disabled={running || posts.length === 0} type="button">
+            {running === "suggestions" ? "Gerando…" : "✦ Sugerir temas"}
           </button>
         </div>
       </div>
@@ -592,6 +600,44 @@ function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {suggestions.length > 0 && (
+        <div style={{ marginTop: 32 }}>
+          <h3 className="section-title" style={{ fontSize: 14, marginBottom: 12 }}>✦ Sugestões de Conteúdo ({suggestions.filter(s => s.status === "PENDING").length} pendentes)</h3>
+          <div className="table-wrap">
+            <table className="camp-table">
+              <thead>
+                <tr>
+                  <th>Tema</th>
+                  <th>Formato</th>
+                  <th>Justificativa</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {suggestions.map((s) => (
+                  <tr key={s.id} style={{ opacity: s.status === "DISMISSED" ? 0.45 : 1 }}>
+                    <td className="camp-name">{s.theme}</td>
+                    <td>
+                      <span className="plat-badge" style={{ background: FORMAT_COLOR[s.format] + "22", color: FORMAT_COLOR[s.format], fontWeight: 600 }}>
+                        {FORMAT_LABEL[s.format] || s.format}
+                      </span>
+                    </td>
+                    <td className="ig-reasoning">{s.reasoning}</td>
+                    <td>
+                      <select className="status-select" value={s.status}
+                        style={{ color: SUGGESTION_STATUS_COLOR[s.status] }}
+                        onChange={(e) => onSuggestionStatus(s.id, e.target.value)}>
+                        {Object.entries(SUGGESTION_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -673,6 +719,7 @@ export default function App() {
   const [monthlyGoal, setMonthlyGoal] = useState(null);
   const [leads, setLeads] = useState([]);
   const [igPosts, setIgPosts] = useState([]);
+  const [igSuggestions, setIgSuggestions] = useState([]);
   const [igRunning, setIgRunning] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -685,7 +732,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [s, dy, c, wr, goal, igData, leadsData] = await Promise.all([
+      const [s, dy, c, wr, goal, igData, leadsData, csData] = await Promise.all([
         apiFetch(`/dashboard/summary?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/daily?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/campaigns?days=${d}`).then((r) => r.json()),
@@ -693,6 +740,7 @@ export default function App() {
         apiFetch(`/dashboard/monthly-goal?month=${month}`).then((r) => r.json()),
         apiFetch(`/dashboard/instagram-posts`).then((r) => r.json()),
         apiFetch(`/leads`).then((r) => r.json()),
+        apiFetch(`/dashboard/content-suggestions`).then((r) => r.json()),
       ]);
       if (s.ok) setSummary(s);
       if (dy.ok) setSeries(dy.series || []);
@@ -701,6 +749,7 @@ export default function App() {
       if (goal.ok) setMonthlyGoal(goal.goal);
       if (igData.ok) setIgPosts(igData.posts || []);
       if (leadsData.ok) setLeads(leadsData.leads || []);
+      if (csData.ok) setIgSuggestions(csData.suggestions || []);
     } catch {
       setError("Falha ao carregar dados do backend.");
     } finally {
@@ -763,6 +812,27 @@ export default function App() {
       }
     } finally {
       setIgRunning(null);
+    }
+  }
+
+  async function handleIgSuggestions() {
+    setIgRunning("suggestions");
+    try {
+      const res = await apiFetch("/jobs/content-suggestions/run", { method: "POST" });
+      const d = await res.json();
+      if (d.ok) {
+        const cs = await apiFetch("/dashboard/content-suggestions").then((r) => r.json());
+        if (cs.ok) setIgSuggestions(cs.suggestions || []);
+      }
+    } finally {
+      setIgRunning(null);
+    }
+  }
+
+  async function handleSuggestionStatus(id, status) {
+    const res = await apiFetch(`/content-suggestions/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    if (res.ok) {
+      setIgSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
     }
   }
 
@@ -928,8 +998,11 @@ export default function App() {
         {tab === "instagram" && (
           <InstagramTab
             posts={igPosts}
+            suggestions={igSuggestions}
             onRunCollection={handleIgCollection}
             onRunAnalysis={handleIgAnalysis}
+            onRunSuggestions={handleIgSuggestions}
+            onSuggestionStatus={handleSuggestionStatus}
             running={igRunning}
           />
         )}
