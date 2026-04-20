@@ -527,11 +527,19 @@ function ScoreDots({ score }) {
 }
 
 function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
+  const [filterAction, setFilterAction] = useState("ALL");
+  const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
+
   return (
     <div className="leads-tab">
       <div className="leads-header">
-        <h2 className="section-title" style={{ margin: 0 }}>Conteúdo — @amandamramalho ({posts.length})</h2>
-        <div style={{ display: "flex", gap: 8 }}>
+        <h2 className="section-title" style={{ margin: 0 }}>Conteúdo — @amandamramalho ({filtered.length}/{posts.length})</h2>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select className="status-select" value={filterAction} onChange={(e) => setFilterAction(e.target.value)}
+            style={{ color: filterAction === "ALL" ? "#475569" : ACTION_COLOR[filterAction], fontWeight: 600 }}>
+            <option value="ALL">Todas as ações</option>
+            {Object.entries(ACTION_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
           <button className="btn-secondary" onClick={onRunCollection} disabled={running} type="button">
             {running === "collection" ? "Coletando…" : "Coletar posts"}
           </button>
@@ -562,7 +570,7 @@ function InstagramTab({ posts, onRunCollection, onRunAnalysis, running }) {
               </tr>
             </thead>
             <tbody>
-              {posts.map((p) => (
+              {filtered.map((p) => (
                 <tr key={p.id}>
                   <td className="camp-name">
                     {p.permalink
