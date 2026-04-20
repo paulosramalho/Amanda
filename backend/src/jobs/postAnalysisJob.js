@@ -54,13 +54,20 @@ export async function runPostAnalysisJob({ triggeredBy = "manual", forceReanalyz
   const client = getClient();
   if (!client) return { ok: false, reason: "ANTHROPIC_API_KEY não configurada" };
 
+  const job = await prisma.jobExecution.create({
+    data: { jobName: "post_analysis", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy, forceReanalyze } },
+  });
+
   const posts = await prisma.instagramPost.findMany({
     where: forceReanalyze ? {} : { analysis: null },
     orderBy: { publishedAt: "desc" },
     take: 50,
   });
 
-  if (posts.length === 0) return { ok: true, analyzed: 0 };
+  if (posts.length === 0) {
+    await prisma.jobExecution.update({ where: { id: job.id }, data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, analyzed: 0 } } });
+    return { ok: true, analyzed: 0 };
+  }
 
   let analyzed = 0;
   let errors = 0;
@@ -80,5 +87,6 @@ export async function runPostAnalysisJob({ triggeredBy = "manual", forceReanalyz
     }
   }
 
+  await prisma.jobExecution.update({ where: { id: job.id }, data: { status: errors > 0 && analyzed === 0 ? "FAILED" : "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, analyzed, errors } } });
   return { ok: true, analyzed, errors };
 }

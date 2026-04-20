@@ -11,6 +11,9 @@ function getClient() {
 export async function runContentSuggestionsJob({ triggeredBy = "manual" } = {}) {
   const client = getClient();
   if (!client) return { ok: false, reason: "ANTHROPIC_API_KEY não configurada" };
+  const job = await prisma.jobExecution.create({
+    data: { jobName: "content_suggestions", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
+  });
 
   // Lê últimos 30 posts com análise para contexto
   const posts = await prisma.instagramPost.findMany({
@@ -72,6 +75,7 @@ Retorne SOMENTE um array JSON válido:
     })),
   });
 
+  await prisma.jobExecution.update({ where: { id: job.id }, data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, created: valid.length } } });
   console.log(`[content-suggestions] ${triggeredBy}: ${valid.length} sugestões criadas`);
   return { ok: true, created: valid.length };
 }

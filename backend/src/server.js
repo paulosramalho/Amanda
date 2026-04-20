@@ -683,6 +683,32 @@ app.post("/jobs/trending-suggestions/run", requireAuth, async (req, res) => {
   }
 });
 
+const AGENT_REGISTRY = [
+  { jobName: "instagram_collection",  label: "Coletor de Posts",        description: "Coleta posts e métricas do @amandamramalho via Instagram Graph API." },
+  { jobName: "post_analysis",         label: "Analisador de Posts",      description: "Avalia qualidade de cada post com Claude e recomenda ação (Investir, Redirecionar, Remover…)." },
+  { jobName: "content_suggestions",   label: "Sugestor de Conteúdo",     description: "Analisa o histórico do perfil e sugere novos temas e formatos de post." },
+  { jobName: "trending_suggestions",  label: "Agente de Tendências",     description: "Varre Conjur, JOTA e Migalhas em busca de pautas jurídicas em alta e sugere posts." },
+  { jobName: "ads_collection",        label: "Coletor de Anúncios",      description: "Coleta métricas diárias de campanhas no Google Ads e Meta Ads." },
+  { jobName: "instagram_notify",      label: "Notificador",              description: "Envia e-mail diário com posts INVEST/REMOVE e alerta de renovação do token." },
+];
+
+app.get("/dashboard/agents", async (_req, res) => {
+  try {
+    const jobNames = AGENT_REGISTRY.map((a) => a.jobName);
+    const lastRuns = await prisma.jobExecution.findMany({
+      where: { jobName: { in: jobNames } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["jobName"],
+      select: { jobName: true, status: true, finishedAt: true, startedAt: true, details: true, errorMessage: true },
+    });
+    const byName = Object.fromEntries(lastRuns.map((r) => [r.jobName, r]));
+    const agents = AGENT_REGISTRY.map((a) => ({ ...a, lastRun: byName[a.jobName] || null }));
+    res.json({ ok: true, agents });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 app.get("/dashboard/content-suggestions", async (req, res) => {
   try {
     const suggestions = await prisma.contentSuggestion.findMany({

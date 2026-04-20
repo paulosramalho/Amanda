@@ -641,6 +641,60 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
   );
 }
 
+// ── Agents Tab ───────────────────────────────────────────────────────────────
+
+const STATUS_AGENT_COLOR = { SUCCESS: "#059669", RUNNING: "#2563eb", FAILED: "#dc2626", PENDING: "#d97706" };
+const STATUS_AGENT_LABEL = { SUCCESS: "OK", RUNNING: "Rodando", FAILED: "Erro", PENDING: "Pendente" };
+
+function AgentsTab({ agents }) {
+  function fmtDateTime(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Belem", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  return (
+    <div className="leads-tab">
+      <div className="leads-header">
+        <h2 className="section-title" style={{ margin: 0 }}>Agentes ({agents.length})</h2>
+      </div>
+      <div className="table-wrap">
+        <table className="camp-table">
+          <thead>
+            <tr>
+              <th>Agente</th>
+              <th>Função</th>
+              <th>Status</th>
+              <th>Última execução</th>
+            </tr>
+          </thead>
+          <tbody>
+            {agents.map((a) => {
+              const status = a.lastRun?.status || null;
+              const lastAt = a.lastRun?.finishedAt || a.lastRun?.startedAt || null;
+              return (
+                <tr key={a.jobName}>
+                  <td className="camp-name">{a.label}</td>
+                  <td style={{ fontSize: 12, color: "#475569", maxWidth: 320 }}>{a.description}</td>
+                  <td>
+                    {status ? (
+                      <span className="plat-badge" style={{ background: STATUS_AGENT_COLOR[status] + "22", color: STATUS_AGENT_COLOR[status], fontWeight: 600 }}>
+                        {STATUS_AGENT_LABEL[status] || status}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "#94a3b8" }}>Nunca executou</span>
+                    )}
+                  </td>
+                  <td style={{ fontSize: 12, color: "#64748b" }}>{fmtDateTime(lastAt)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Login Screen ─────────────────────────────────────────────────────────────
 
 function LoginScreen({ onLogin }) {
@@ -718,6 +772,7 @@ export default function App() {
   const [igPosts, setIgPosts] = useState([]);
   const [igSuggestions, setIgSuggestions] = useState([]);
   const [igRunning, setIgRunning] = useState(null);
+  const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showGoalEditor, setShowGoalEditor] = useState(false);
@@ -729,7 +784,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [s, dy, c, wr, goal, igData, leadsData, csData] = await Promise.all([
+      const [s, dy, c, wr, goal, igData, leadsData, csData, agentsData] = await Promise.all([
         apiFetch(`/dashboard/summary?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/daily?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/campaigns?days=${d}`).then((r) => r.json()),
@@ -738,6 +793,7 @@ export default function App() {
         apiFetch(`/dashboard/instagram-posts`).then((r) => r.json()),
         apiFetch(`/leads`).then((r) => r.json()),
         apiFetch(`/dashboard/content-suggestions`).then((r) => r.json()),
+        apiFetch(`/dashboard/agents`).then((r) => r.json()),
       ]);
       if (s.ok) setSummary(s);
       if (dy.ok) setSeries(dy.series || []);
@@ -747,6 +803,7 @@ export default function App() {
       if (igData.ok) setIgPosts(igData.posts || []);
       if (leadsData.ok) setLeads(leadsData.leads || []);
       if (csData.ok) setIgSuggestions(csData.suggestions || []);
+      if (agentsData.ok) setAgents(agentsData.agents || []);
     } catch {
       setError("Falha ao carregar dados do backend.");
     } finally {
@@ -864,6 +921,7 @@ export default function App() {
               { key: "weekly", label: "Relatório Semanal" },
               { key: "leads", label: `Leads ${leads.length > 0 ? `(${leads.length})` : ""}` },
               { key: "instagram", label: `Conteúdo ${igPosts.length > 0 ? `(${igPosts.length})` : ""}` },
+              { key: "agents", label: "Agentes" },
             ].map(({ key, label }) => (
               <button
                 key={key}
@@ -1016,6 +1074,7 @@ export default function App() {
             running={igRunning}
           />
         )}
+        {tab === "agents" && <AgentsTab agents={agents} />}
       </main>
 
       {showGoalEditor && (

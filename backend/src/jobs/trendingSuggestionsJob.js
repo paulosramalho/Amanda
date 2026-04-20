@@ -37,6 +37,9 @@ async function fetchTitles(feed) {
 export async function runTrendingSuggestionsJob({ triggeredBy = "manual" } = {}) {
   const client = getClient();
   if (!client) return { ok: false, reason: "ANTHROPIC_API_KEY não configurada" };
+  const job = await prisma.jobExecution.create({
+    data: { jobName: "trending_suggestions", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
+  });
 
   // Busca todos os feeds em paralelo
   const results = await Promise.all(FEEDS.map(async (f) => {
@@ -94,6 +97,7 @@ Retorne SOMENTE um array JSON válido:
   });
 
   const sources = results.filter((r) => r.titles.length > 0).map((r) => r.source);
+  await prisma.jobExecution.update({ where: { id: job.id }, data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, created: valid.length, sources } } });
   console.log(`[trending-suggestions] ${triggeredBy}: ${valid.length} sugestões de ${sources.join(", ")}`);
   return { ok: true, created: valid.length, sources };
 }
