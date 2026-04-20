@@ -677,9 +677,16 @@ function AgentsTab({ agents }) {
                   <td style={{ fontSize: 12, color: "#475569", maxWidth: 320 }}>{a.description}</td>
                   <td>
                     {status ? (
-                      <span className="plat-badge" style={{ background: STATUS_AGENT_COLOR[status] + "22", color: STATUS_AGENT_COLOR[status], fontWeight: 600 }}>
-                        {STATUS_AGENT_LABEL[status] || status}
-                      </span>
+                      <div>
+                        <span className="plat-badge" style={{ background: STATUS_AGENT_COLOR[status] + "22", color: STATUS_AGENT_COLOR[status], fontWeight: 600 }}>
+                          {STATUS_AGENT_LABEL[status] || status}
+                        </span>
+                        {status === "FAILED" && a.lastRun?.errorMessage && (
+                          <div style={{ fontSize: 11, color: "#dc2626", marginTop: 4, maxWidth: 320, wordBreak: "break-word" }}>
+                            {a.lastRun.errorMessage}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <span style={{ fontSize: 12, color: "#94a3b8" }}>Nunca executou</span>
                     )}
