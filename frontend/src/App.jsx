@@ -646,7 +646,15 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
 const STATUS_AGENT_COLOR = { SUCCESS: "#059669", RUNNING: "#2563eb", FAILED: "#dc2626", PENDING: "#d97706" };
 const STATUS_AGENT_LABEL = { SUCCESS: "OK", RUNNING: "Rodando", FAILED: "Erro", PENDING: "Pendente" };
 
-function AgentsTab({ agents }) {
+const AGENT_JOB_ENDPOINTS = {
+  instagram_collection: "/jobs/instagram-collection/run",
+  post_analysis: "/jobs/post-analysis/run",
+  content_suggestions: "/jobs/content-suggestions/run",
+  trending_suggestions: "/jobs/trending-suggestions/run",
+  ads_collection: "/jobs/ads-collection/run",
+};
+
+function AgentsTab({ agents, onRun, running }) {
   function fmtDateTime(iso) {
     if (!iso) return "—";
     return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Belem", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -665,12 +673,15 @@ function AgentsTab({ agents }) {
               <th>Função</th>
               <th>Status</th>
               <th>Última execução</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {agents.map((a) => {
               const status = a.lastRun?.status || null;
               const lastAt = a.lastRun?.finishedAt || a.lastRun?.startedAt || null;
+              const hasEndpoint = !!AGENT_JOB_ENDPOINTS[a.jobName];
+              const isRunning = running === a.jobName;
               return (
                 <tr key={a.jobName}>
                   <td className="camp-name">{a.label}</td>
@@ -692,6 +703,19 @@ function AgentsTab({ agents }) {
                     )}
                   </td>
                   <td style={{ fontSize: 12, color: "#64748b" }}>{fmtDateTime(lastAt)}</td>
+                  <td>
+                    {hasEndpoint && (
+                      <button
+                        className="btn-secondary"
+                        style={{ fontSize: 12, padding: "4px 10px" }}
+                        disabled={!!running}
+                        onClick={() => onRun(a.jobName)}
+                        type="button"
+                      >
+                        {isRunning ? "Executando…" : "Executar"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               );
             })}
@@ -780,6 +804,7 @@ export default function App() {
   const [igSuggestions, setIgSuggestions] = useState([]);
   const [igRunning, setIgRunning] = useState(null);
   const [agents, setAgents] = useState([]);
+  const [agentRunning, setAgentRunning] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showGoalEditor, setShowGoalEditor] = useState(false);
@@ -848,6 +873,23 @@ export default function App() {
     if (d.ok) setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status: d.lead.status, convertedAt: d.lead.convertedAt } : l));
   }
 
+  async function refreshAgents() {
+    const r = await apiFetch("/dashboard/agents").then((res) => res.json());
+    if (r.ok) setAgents(r.agents || []);
+  }
+
+  async function handleAgentRun(jobName) {
+    const endpoint = AGENT_JOB_ENDPOINTS[jobName];
+    if (!endpoint) return;
+    setAgentRunning(jobName);
+    try {
+      await apiFetch(endpoint, { method: "POST" });
+    } finally {
+      await refreshAgents();
+      setAgentRunning(null);
+    }
+  }
+
   async function handleIgCollection() {
     setIgRunning("collection");
     try {
@@ -858,6 +900,7 @@ export default function App() {
         if (ig.ok) setIgPosts(ig.posts || []);
       }
     } finally {
+      await refreshAgents();
       setIgRunning(null);
     }
   }
@@ -1081,7 +1124,7 @@ export default function App() {
             running={igRunning}
           />
         )}
-        {tab === "agents" && <AgentsTab agents={agents} />}
+        {tab === "agents" && <AgentsTab agents={agents} onRun={handleAgentRun} running={agentRunning} />}
       </main>
 
       {showGoalEditor && (
