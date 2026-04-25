@@ -78,25 +78,49 @@ async function runFullCycle({ triggeredBy = "scheduler" } = {}) {
   }
 
   // 4. Busca posts INVEST ou REMOVE para notificar
-  const actionPosts = await prisma.postAnalysis.findMany({
-    where: { action: { in: ["INVEST", "REMOVE"] } },
-    include: { post: true },
-    orderBy: { score: "desc" },
-    take: 10,
+  const notifyJob = await prisma.jobExecution.create({
+    data: { jobName: "instagram_notify", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
   });
 
-  if (actionPosts.length === 0) {
-    console.log("[instagram-scheduler] No INVEST/REMOVE posts to notify.");
-    return;
-  }
+  try {
+    const actionPosts = await prisma.postAnalysis.findMany({
+      where: { action: { in: ["INVEST", "REMOVE"] } },
+      include: { post: true },
+      orderBy: { score: "desc" },
+      take: 10,
+    });
 
-  const investPosts = actionPosts.filter((p) => p.action === "INVEST").map((p) => ({ post: p.post, analysis: p }));
-  const removePosts = actionPosts.filter((p) => p.action === "REMOVE").map((p) => ({ post: p.post, analysis: p }));
+    if (actionPosts.length === 0) {
+      console.log("[instagram-scheduler] No INVEST/REMOVE posts to notify.");
+      await prisma.jobExecution.update({
+        where: { id: notifyJob.id },
+        data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, skipped: true, reason: "no INVEST/REMOVE posts" } },
+      });
+      return;
+    }
 
-  const tokenDaysUsed = getTokenDaysUsed();
-  await sendInstagramAnalysisEmail({ investPosts, removePosts, tokenDaysUsed }).catch((e) => {
+    const investPosts = actionPosts.filter((p) => p.action === "INVEST").map((p) => ({ post: p.post, analysis: p }));
+    const removePosts = actionPosts.filter((p) => p.action === "REMOVE").map((p) => ({ post: p.post, analysis: p }));
+
+    const tokenDaysUsed = getTokenDaysUsed();
+    const result = await sendInstagramAnalysisEmail({ investPosts, removePosts, tokenDaysUsed });
+
+    await prisma.jobExecution.update({
+      where: { id: notifyJob.id },
+      data: {
+        status: result?.sent ? "SUCCESS" : "FAILED",
+        finishedAt: new Date(),
+        details: { trigger: triggeredBy, invest: investPosts.length, remove: removePosts.length, tokenDaysUsed, ...result },
+        errorMessage: result?.sent ? null : (result?.reason || result?.error || "unknown"),
+      },
+    });
+  } catch (e) {
     console.error("[instagram-scheduler] Notify email failed:", e.message);
-  });
+    await prisma.jobExecution.update({
+      where: { id: notifyJob.id },
+      data: { status: "FAILED", finishedAt: new Date(), errorMessage: e.message?.slice(0, 500) || "unknown error" },
+    });
+  }
 }
 
 async function tick() {

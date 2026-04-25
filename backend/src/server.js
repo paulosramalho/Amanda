@@ -872,6 +872,9 @@ app.post("/jobs/post-publisher/run", requireAuth, async (_req, res) => {
 });
 
 app.post("/jobs/instagram-notify/test", requireAuth, async (req, res) => {
+  const job = await prisma.jobExecution.create({
+    data: { jobName: "instagram_notify", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: "http" } },
+  });
   try {
     const { prisma: db } = await import("./lib/prisma.js");
 
@@ -916,9 +919,24 @@ app.post("/jobs/instagram-notify/test", requireAuth, async (req, res) => {
       simulated,
     });
 
+    await prisma.jobExecution.update({
+      where: { id: job.id },
+      data: {
+        status: result?.sent ? "SUCCESS" : "FAILED",
+        finishedAt: new Date(),
+        details: { trigger: "http", simulated, invest: investPosts.length, remove: removeReal.length, ...result },
+        errorMessage: result?.sent ? null : (result?.reason || result?.error || "unknown"),
+      },
+    });
+
     res.json({ ok: true, simulated, ...result });
   } catch (error) {
-    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+    const message = error instanceof Error ? error.message : "unknown error";
+    await prisma.jobExecution.update({
+      where: { id: job.id },
+      data: { status: "FAILED", finishedAt: new Date(), errorMessage: message.slice(0, 500) },
+    });
+    res.status(500).json({ ok: false, message });
   }
 });
 

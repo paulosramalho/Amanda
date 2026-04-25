@@ -871,6 +871,7 @@ const AGENT_JOB_ENDPOINTS = {
   trending_suggestions: "/jobs/trending-suggestions/run",
   ads_collection: "/jobs/ads-collection/run",
   post_publisher: "/jobs/post-publisher/run",
+  instagram_notify: "/jobs/instagram-notify/test",
 };
 
 function AgentsTab({ agents, onRun, running }) {
