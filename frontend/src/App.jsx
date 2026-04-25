@@ -602,7 +602,7 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
   const [loadingBestTime, setLoadingBestTime] = useState(false);
   const [err, setErr] = useState(null);
 
-  const fase2 = ["REEL", "STORY"].includes(format);
+  const fase2 = format === "STORY";
 
   async function loadBestTime() {
     setLoadingBestTime(true);
@@ -671,7 +671,8 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
     if (!cleanUrls.length) return setErr("Pelo menos uma URL de mídia.");
     if (format === "CAROUSEL" && (cleanUrls.length < 2 || cleanUrls.length > 10)) return setErr("Carrossel exige entre 2 e 10 imagens.");
     if (format === "PHOTO" && cleanUrls.length !== 1) return setErr("Foto exige exatamente uma URL.");
-    if (fase2) return setErr("REEL e Stories ficam para a Fase 2.");
+    if (format === "REEL" && cleanUrls.length !== 1) return setErr("Reel exige exatamente uma URL de vídeo (MP4 H.264).");
+    if (fase2) return setErr("Stories ficam para a Fase 2.");
 
     const scheduledFor = brtToUtcIso(date, time);
     if (new Date(scheduledFor).getTime() < Date.now() - 60_000) return setErr("Data/hora deve estar no futuro.");
@@ -711,7 +712,7 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
             <select value={format} onChange={(e) => setFormat(e.target.value)} className="status-select" style={{ width: "100%" }}>
               <option value="PHOTO">Foto</option>
               <option value="CAROUSEL">Carrossel (2-10 imagens)</option>
-              <option value="REEL" disabled>Reel — Fase 2</option>
+              <option value="REEL">Reel (vídeo MP4)</option>
               <option value="STORY" disabled>Stories — Fase 2</option>
             </select>
           </label>
@@ -723,10 +724,15 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
           </label>
 
           <div>
-            <span style={{ fontSize: 13, color: "#475569", fontWeight: 500 }}>URL(s) da mídia (HTTPS pública, JPEG/PNG, ≤8MB)</span>
+            <span style={{ fontSize: 13, color: "#475569", fontWeight: 500 }}>
+              {format === "REEL"
+                ? "URL do vídeo (HTTPS pública, MP4 H.264, ≤1GB, ≤15min)"
+                : "URL(s) da mídia (HTTPS pública, JPEG/PNG, ≤8MB)"}
+            </span>
             {mediaUrls.map((u, i) => (
               <div key={i} style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                <input type="url" value={u} onChange={(e) => setUrl(i, e.target.value)} placeholder="https://..."
+                <input type="url" value={u} onChange={(e) => setUrl(i, e.target.value)}
+                  placeholder={format === "REEL" ? "https://...video.mp4" : "https://..."}
                   style={{ flex: 1, padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
                 {mediaUrls.length > 1 && (
                   <button type="button" onClick={() => delUrl(i)} className="btn-secondary" style={{ padding: "4px 10px" }}>×</button>
@@ -737,6 +743,11 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
               <button type="button" onClick={addUrl} className="btn-secondary" style={{ marginTop: 6, padding: "5px 12px", fontSize: 12 }}>
                 + adicionar imagem
               </button>
+            )}
+            {format === "REEL" && (
+              <div style={{ marginTop: 6, fontSize: 11, color: "#d97706", padding: "6px 10px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 4 }}>
+                ⏳ Reel é assíncrono — após o tick chamar a API, o Instagram processa o vídeo (até ~4min de polling). Status fica "Publicando" durante esse tempo.
+              </div>
             )}
           </div>
 
@@ -1090,7 +1101,7 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
               </thead>
               <tbody>
                 {filtered.map((p) => {
-                  const recyclable = ["IMAGE", "CAROUSEL_ALBUM"].includes(p.mediaType);
+                  const recyclable = ["IMAGE", "CAROUSEL_ALBUM", "VIDEO", "REELS"].includes(p.mediaType);
                   return (
                   <tr key={p.id}>
                     <td className="camp-name">
@@ -1117,7 +1128,7 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
                           🔄
                         </button>
                       ) : (
-                        <span style={{ fontSize: 11, color: "#94a3b8" }} title="Reel/Vídeo não suportado na Fase 1">—</span>
+                        <span style={{ fontSize: 11, color: "#94a3b8" }} title="Tipo de mídia não suportado para reciclagem">—</span>
                       )}
                     </td>
                   </tr>

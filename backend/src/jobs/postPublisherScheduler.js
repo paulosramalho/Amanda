@@ -82,6 +82,40 @@ async function publishCarousel({ igUserId, token, mediaUrls, caption }) {
   return { creationId: container.id, mediaId: publish.id };
 }
 
+// Reel: publicação assíncrona — Instagram processa o vídeo, faz poll do status_code
+async function publishReel({ igUserId, token, videoUrl, caption }) {
+  const container = await apiCall("POST", `/${igUserId}/media`, {
+    media_type: "REELS",
+    video_url: videoUrl,
+    caption,
+    access_token: token,
+  });
+  console.log(`[postPublisher] Reel container criado: ${container.id} — aguardando processamento`);
+
+  const start = Date.now();
+  const TIMEOUT_MS = 4 * 60 * 1000; // 4min — depois desistimos para não travar o tick
+  const POLL_INTERVAL_MS = 15_000;
+
+  let status = "IN_PROGRESS";
+  let lastInfo = {};
+  while (status === "IN_PROGRESS") {
+    if (Date.now() - start > TIMEOUT_MS) {
+      throw new Error(`Timeout (4min) processando vídeo. creation_id=${container.id} — Instagram pode finalizar depois, tente publish-now mais tarde.`);
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    lastInfo = await apiCall("GET", `/${container.id}`, { fields: "status_code", access_token: token });
+    status = lastInfo.status_code || "IN_PROGRESS";
+    console.log(`[postPublisher] Reel ${container.id} status=${status} (após ${Math.round((Date.now() - start) / 1000)}s)`);
+  }
+
+  if (status === "ERROR") throw new Error(`Reel processamento ERROR: ${lastInfo.status_code_description || "sem detalhes"}`);
+  if (status === "EXPIRED") throw new Error("Reel container expirou antes de publicar (limite ~24h da API).");
+  if (status !== "FINISHED") throw new Error(`Reel status inesperado: ${status}`);
+
+  const publish = await apiCall("POST", `/${igUserId}/media_publish`, { creation_id: container.id, access_token: token });
+  return { creationId: container.id, mediaId: publish.id };
+}
+
 async function getPermalink(mediaId, token) {
   try {
     const data = await apiCall("GET", `/${mediaId}`, { fields: "permalink", access_token: token });
@@ -104,6 +138,9 @@ async function publishOne(post) {
     if (post.format === "CAROUSEL" && (post.mediaUrls.length < 2 || post.mediaUrls.length > 10)) {
       throw new Error(`Carrossel exige 2-10 imagens (recebeu ${post.mediaUrls.length}).`);
     }
+    if ((post.format === "PHOTO" || post.format === "REEL") && post.mediaUrls.length !== 1) {
+      throw new Error(`${post.format} exige exatamente 1 URL (recebeu ${post.mediaUrls.length}).`);
+    }
 
     const { igUserId, token } = await getIgUserAndToken();
 
@@ -112,8 +149,10 @@ async function publishOne(post) {
       result = await publishPhoto({ igUserId, token, mediaUrl: post.mediaUrls[0], caption: post.caption });
     } else if (post.format === "CAROUSEL") {
       result = await publishCarousel({ igUserId, token, mediaUrls: post.mediaUrls, caption: post.caption });
+    } else if (post.format === "REEL") {
+      result = await publishReel({ igUserId, token, videoUrl: post.mediaUrls[0], caption: post.caption });
     } else {
-      throw new Error(`Formato ${post.format} não suportado na Fase 1 (apenas PHOTO/CAROUSEL).`);
+      throw new Error(`Formato ${post.format} não suportado (Stories ainda em planejamento).`);
     }
 
     const permalink = await getPermalink(result.mediaId, token);
