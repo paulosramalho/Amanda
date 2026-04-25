@@ -535,6 +535,9 @@ const SCHEDULED_STATUS_LABEL = { DRAFT: "Rascunho", SCHEDULED: "Agendado", PUBLI
 const SCHEDULED_STATUS_COLOR = { DRAFT: "#94a3b8", SCHEDULED: "#2563eb", PUBLISHING: "#d97706", PUBLISHED: "#059669", FAILED: "#dc2626", CANCELLED: "#94a3b8" };
 const PUBLISH_FORMAT_LABEL  = { PHOTO: "Foto", CAROUSEL: "Carrossel", REEL: "Reel", STORY: "Stories" };
 const SUGGESTION_TO_PUBLISH = { POST: "PHOTO", CAROUSEL: "CAROUSEL", STORIES: "STORY", REEL: "REEL" };
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const FORMAT_ICON = { PHOTO: "📷", CAROUSEL: "🖼️", REEL: "🎬", STORY: "✨" };
 
 function ScheduledPostBadge({ post }) {
   if (!post) return null;
@@ -595,9 +598,40 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
   const [firstComment, setFirstComment] = useState(initial.firstComment || "");
   const [submitting, setSubmitting] = useState(false);
   const [suggestingHashtags, setSuggestingHashtags] = useState(false);
+  const [bestTime, setBestTime] = useState(null); // { recommendations, period, totalPosts, message? }
+  const [loadingBestTime, setLoadingBestTime] = useState(false);
   const [err, setErr] = useState(null);
 
   const fase2 = ["REEL", "STORY"].includes(format);
+
+  async function loadBestTime() {
+    setLoadingBestTime(true);
+    setErr(null);
+    try {
+      const res = await apiFetch("/api/best-time/instagram?days=90");
+      const d = await res.json();
+      setBestTime(d.ok ? d : { recommendations: [], message: d.message });
+    } catch (e) {
+      setErr("Falha ao carregar histórico: " + (e.message || "erro"));
+    } finally {
+      setLoadingBestTime(false);
+    }
+  }
+
+  // Próxima ocorrência do dia da semana (0-6) a partir de uma data BRT base
+  function nextDateForDayOfWeek(targetDay) {
+    const todayBRT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Belem" }));
+    const todayDay = todayBRT.getDay();
+    const diff = ((targetDay - todayDay) + 7) % 7 || 7; // se for hoje, vai para próxima semana
+    const target = new Date(todayBRT.getTime() + diff * 86400000);
+    return target.toLocaleDateString("sv-SE", { timeZone: "America/Belem" });
+  }
+
+  function applyRecommendation(rec) {
+    setDate(nextDateForDayOfWeek(rec.day));
+    setTime(`${String(rec.hour).padStart(2, "0")}:00`);
+    setBestTime(null);
+  }
 
   async function suggestHashtags() {
     if (!caption.trim()) {
@@ -706,15 +740,41 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
             )}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label>
-              <span>Data (BRT)</span>
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontSize: 13, color: "#475569", fontWeight: 500 }}>Data e hora (BRT)</span>
+              <button type="button" onClick={loadBestTime} disabled={loadingBestTime} className="btn-secondary" style={{ padding: "3px 10px", fontSize: 11 }}
+                title="Mostra os horários com maior engajamento médio (curtidas + 2×comentários + alcance/10) dos últimos 90 dias">
+                {loadingBestTime ? "Analisando…" : "🕐 Melhor horário"}
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "100%", padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
-            </label>
-            <label>
-              <span>Hora (BRT)</span>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ width: "100%", padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
-            </label>
+            </div>
+            {bestTime && (
+              <div style={{ marginTop: 8, padding: "8px 10px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" }}>
+                {bestTime.recommendations?.length > 0 ? (
+                  <>
+                    <div style={{ fontSize: 11, color: "#64748b", marginBottom: 6 }}>
+                      Top horários do {bestTime.period} ({bestTime.totalPosts} posts) — clique para aplicar:
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {bestTime.recommendations.map((r, i) => (
+                        <button key={i} type="button" onClick={() => applyRecommendation(r)}
+                          style={{ padding: "5px 10px", border: "1px solid #cbd5e1", borderRadius: 14, background: "white", fontSize: 11, cursor: "pointer", color: "#1e293b" }}
+                          title={`${r.sampleSize} post(s) neste bucket · score médio ${r.avgScore}`}>
+                          <strong>{WEEKDAYS[r.day]} {String(r.hour).padStart(2, "0")}:00</strong>
+                          <span style={{ color: "#94a3b8", marginLeft: 4 }}>· {r.avgScore}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{bestTime.message || "Sem recomendações disponíveis."}</div>
+                )}
+              </div>
+            )}
           </div>
 
           <label>
@@ -754,9 +814,6 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
 }
 
 // ── Calendário Editorial ──────────────────────────────────────────────────────
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const FORMAT_ICON = { PHOTO: "📷", CAROUSEL: "🖼️", REEL: "🎬", STORY: "✨" };
 
 function dayKeyBRT(d) {
   return new Date(d).toLocaleDateString("sv-SE", { timeZone: "America/Belem" });

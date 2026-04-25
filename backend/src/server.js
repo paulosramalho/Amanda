@@ -871,6 +871,52 @@ app.post("/jobs/post-publisher/run", requireAuth, async (_req, res) => {
   }
 });
 
+// Melhor horário para postar — análise estatística do histórico
+app.get("/api/best-time/instagram", requireAuth, async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days || "90", 10) || 90, 7), 365);
+    const fromDate = new Date(Date.now() - days * 86400000);
+
+    const posts = await prisma.instagramPost.findMany({
+      where: { publishedAt: { gte: fromDate } },
+      select: { publishedAt: true, likeCount: true, commentsCount: true, reach: true },
+    });
+
+    if (posts.length < 5) {
+      return res.json({ ok: true, recommendations: [], sampleSize: posts.length, message: "Histórico insuficiente (mínimo 5 posts)" });
+    }
+
+    // Agrupa por (dia-da-semana, hora) em BRT
+    const buckets = {};
+    for (const p of posts) {
+      const brtStr = new Date(p.publishedAt).toLocaleString("en-US", { timeZone: "America/Belem", hour12: false });
+      // brtStr = "M/D/YYYY, HH:MM:SS" — extrai HH e re-deriva dia da semana
+      const brt = new Date(brtStr);
+      const day = brt.getDay();
+      const hour = brt.getHours();
+      const key = `${day}-${hour}`;
+      if (!buckets[key]) buckets[key] = { day, hour, scores: [] };
+      const score = (p.likeCount || 0) + 2 * (p.commentsCount || 0) + (p.reach ? Math.round(p.reach / 10) : 0);
+      buckets[key].scores.push(score);
+    }
+
+    const recommendations = Object.values(buckets)
+      .filter((b) => b.scores.length >= 2)
+      .map((b) => ({
+        day: b.day,
+        hour: b.hour,
+        avgScore: Math.round(b.scores.reduce((a, c) => a + c, 0) / b.scores.length),
+        sampleSize: b.scores.length,
+      }))
+      .sort((a, b) => b.avgScore - a.avgScore)
+      .slice(0, 5);
+
+    res.json({ ok: true, recommendations, totalPosts: posts.length, period: `últimos ${days} dias` });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 // IA — sugestão de hashtags via Claude Haiku para o SchedulePostModal
 app.post("/api/hashtags/suggest", requireAuth, async (req, res) => {
   try {
