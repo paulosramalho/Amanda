@@ -3,8 +3,14 @@
     name: amanda-api
     env: node
     rootDir: backend
-    buildCommand: npm install && npx prisma migrate deploy
+    buildCommand: npm install
     startCommand: npm run start
+    # Migrations Prisma NÃO rodam no build (deu problema na primeira tentativa).
+    # Aplicar manualmente via Neon SQL Editor para cada nova migration:
+    # 1. Copiar conteúdo de backend/prisma/migrations/{ts}_{nome}/migration.sql
+    # 2. Colar no SQL Editor e executar
+    # 3. INSERT na tabela "_prisma_migrations" com o migration_name para registrar
+    # Ver docs/SETUP_INTEGRACOES.md → seção "Aplicação manual de migrations"
     envVars:
       - key: NODE_ENV
         value: production

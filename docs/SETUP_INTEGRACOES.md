@@ -263,3 +263,32 @@ nome, email, telefone, área de interesse (`campaignName`), urgência e mensagem
 | Schema | public |
 | DATABASE_URL | Pooler (ep-frosty-moon-am8sy5u6-pooler.c-5.us-east-1.aws.neon.tech) |
 | DIRECT_URL | Direto sem pooler (ep-frosty-moon-am8sy5u6.c-5.us-east-1.aws.neon.tech) — usado em migrations |
+
+### Aplicação manual de migrations
+
+O `buildCommand` do Render é apenas `npm install` — **não** roda `prisma migrate deploy`. A primeira tentativa de incluir o migrate no build deu problema, então o processo é manual via Neon SQL Editor para cada nova migration:
+
+1. Localizar o SQL: `backend/prisma/migrations/{TIMESTAMP}_{nome}/migration.sql`
+2. Acessar https://console.neon.tech → projeto Amanda → branch `main` → **SQL Editor**
+3. Colar o conteúdo do `migration.sql` e executar
+4. Registrar a migration na tabela de controle do Prisma para que execuções futuras de `prisma migrate deploy` (se um dia voltarem ao build) saibam que ela já foi aplicada:
+
+```sql
+INSERT INTO "_prisma_migrations"
+  (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+VALUES (
+  gen_random_uuid()::text,
+  'manual-via-neon-sql-editor',
+  NOW(),
+  '{TIMESTAMP}_{nome}',  -- mesmo nome da pasta da migration
+  'Aplicada manualmente',
+  NULL,
+  NOW(),
+  1
+);
+```
+
+5. O `prisma generate` (que roda no `postinstall` via `npm install`) gera o client atualizado a partir do `schema.prisma` — então código novo que usa o novo modelo vai funcionar após o próximo deploy.
+
+**Histórico de migrations aplicadas manualmente:**
+- `20260424183000_add_scheduled_posts` (24/04/2026) — modelo `ScheduledPost` para a Fase 1 do agendamento Instagram
