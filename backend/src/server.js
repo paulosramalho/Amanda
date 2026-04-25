@@ -871,6 +871,34 @@ app.post("/jobs/post-publisher/run", requireAuth, async (_req, res) => {
   }
 });
 
+// IA — sugestão de hashtags via Claude Haiku para o SchedulePostModal
+app.post("/api/hashtags/suggest", requireAuth, async (req, res) => {
+  try {
+    const { caption, count = 10 } = req.body || {};
+    if (!caption?.trim()) return res.status(400).json({ ok: false, message: "caption obrigatória" });
+    if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ ok: false, message: "ANTHROPIC_API_KEY não configurada" });
+
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 400,
+      system: "Você é especialista em marketing jurídico brasileiro para Instagram. Gere hashtags relevantes em português, sem emojis e sem texto explicativo.",
+      messages: [{
+        role: "user",
+        content: `Gere exatamente ${count} hashtags para Instagram com base nesta legenda de post jurídico (público brasileiro, perfil de advogada @amandamramalho):\n\n"""${caption.slice(0, 1500)}"""\n\nMistura sugerida:\n- 3-4 amplas (alto alcance, ex: #direito #advogada #jurídico)\n- 3-4 nicho jurídico (ex: #direitocivil #direitodofamilia)\n- 2-3 super específicas do tema\n\nResponda APENAS com as hashtags separadas por espaço, todas começando com #. Nada além disso.`,
+      }],
+    });
+
+    const text = message.content?.[0]?.text || "";
+    const hashtags = (text.match(/#[A-Za-z0-9_À-ÿ]+/g) || []).slice(0, count);
+    if (!hashtags.length) return res.status(500).json({ ok: false, message: "Claude não retornou hashtags válidas", raw: text.slice(0, 200) });
+    res.json({ ok: true, hashtags });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 app.post("/jobs/instagram-notify/test", requireAuth, async (req, res) => {
   const job = await prisma.jobExecution.create({
     data: { jobName: "instagram_notify", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: "http" } },

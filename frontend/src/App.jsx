@@ -594,9 +594,34 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
   const [time, setTime] = useState(startTime);
   const [firstComment, setFirstComment] = useState(initial.firstComment || "");
   const [submitting, setSubmitting] = useState(false);
+  const [suggestingHashtags, setSuggestingHashtags] = useState(false);
   const [err, setErr] = useState(null);
 
   const fase2 = ["REEL", "STORY"].includes(format);
+
+  async function suggestHashtags() {
+    if (!caption.trim()) {
+      setErr("Escreva a legenda primeiro para gerar hashtags relevantes.");
+      return;
+    }
+    setSuggestingHashtags(true);
+    setErr(null);
+    try {
+      const res = await apiFetch("/api/hashtags/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption, count: 10 }),
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.message || "Falha");
+      const tags = d.hashtags.join(" ");
+      setFirstComment((cur) => cur ? `${cur}\n${tags}` : tags);
+    } catch (e) {
+      setErr("Falha ao gerar hashtags: " + (e.message || "erro desconhecido"));
+    } finally {
+      setSuggestingHashtags(false);
+    }
+  }
 
   function setUrl(i, v) {
     setMediaUrls((u) => u.map((x, idx) => idx === i ? v : x));
@@ -693,7 +718,14 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
           </div>
 
           <label>
-            <span>1º comentário (opcional — bom para hashtags) <small style={{ color: "#94a3b8" }}>({firstComment.length}/2200)</small></span>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span>1º comentário (opcional — bom para hashtags) <small style={{ color: "#94a3b8" }}>({firstComment.length}/2200)</small></span>
+              <button type="button" onClick={suggestHashtags} disabled={suggestingHashtags || !caption.trim()}
+                className="btn-secondary" style={{ padding: "3px 10px", fontSize: 11 }}
+                title={!caption.trim() ? "Escreva a legenda primeiro" : "Claude Haiku gera 10 hashtags com base na legenda e adiciona aqui"}>
+                {suggestingHashtags ? "Gerando…" : "✨ Sugerir hashtags"}
+              </button>
+            </span>
             <textarea value={firstComment} onChange={(e) => setFirstComment(e.target.value)} maxLength={2200} rows={2}
               style={{ width: "100%", padding: 8, border: "1px solid #e2e8f0", borderRadius: 6, resize: "vertical", fontFamily: "inherit" }} />
           </label>
