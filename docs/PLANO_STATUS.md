@@ -144,20 +144,24 @@ Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
 | Manual standalone `Manual — Agendamento e Publicação Instagram` v1.0 criado | ✅ |
 | Teste end-to-end com publicação real | 🔲 pendente — quando Amanda quiser publicar 1º post real |
 
-### Fase 2 — Calendário + Reel (🟡 1 de 5 itens)
+### Fase 2 — Calendário + Reel (✅ COMPLETA — 25/04/2026)
 | Tarefa | Status |
 |--------|--------|
-| **Calendário Editorial visual** — sub-aba "Calendário" em Conteúdo, grade mensal 7×6 com cards por status | ✅ (commit `cb164fa`, 25/04/2026) |
-| Reciclagem — botão "Re-agendar este post" em InstagramPost de alta performance | 🔲 próximo |
-| IA sugere hashtags no `SchedulePostModal` (Claude Haiku) | 🔲 |
-| IA sugere melhor horário com base no histórico de engajamento | 🔲 |
-| Suporte a Reel (publicação assíncrona com poll do `status_code`) | 🔲 |
+| **Calendário Editorial visual** — sub-aba "Calendário" em Conteúdo, grade mensal 7×6 com cards por status | ✅ commit `cb164fa` |
+| **Reciclagem** — botão 🔄 em InstagramPost (sub-aba Conteúdo) re-abre modal com legenda/formato pré-preenchidos | ✅ commit `598492b` |
+| **IA sugere hashtags** no `SchedulePostModal` — Claude Haiku, botão ✨ no campo 1º comentário | ✅ commit `41793e9` |
+| **IA sugere melhor horário** — botão 🕐 + análise estatística do histórico (likes + 2×comentários + reach/10) | ✅ commit `e759ffa` |
+| **Suporte a Reel** — `publishReel` com polling do `status_code` (FINISHED/ERROR/EXPIRED), timeout 4min | ✅ commit `09e7d0f` |
 
-### Fase 3 — Upload de mídia direto (🔲)
+### Estado atual (recuperação de contexto)
+Fase 1 e Fase 2 ✅ concluídas. **Próximo passo:** Fase 3 (Upload de mídia direto via R2/S3) — não iniciada. Reusar este doc como ponto de partida ao retomar.
+
+### Fase 3 — Upload de mídia direto (🔲 não iniciada)
 - Bucket Cloudflare R2 ou AWS S3
 - Endpoint de upload no backend
-- Componente `MediaUpload` no frontend
+- Componente `MediaUpload` no frontend (drag & drop)
 - Biblioteca de mídia (galeria)
+- **Acaba a dependência de Drive/Dropbox** — usuário sobe arquivo direto no painel
 
 ### Fase 4 — Multi-cliente Addere (🔲)
 - Multi-conta Instagram por cliente
