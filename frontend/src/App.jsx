@@ -531,9 +531,182 @@ const FORMAT_COLOR = { POST: "#2563eb", CAROUSEL: "#7c3aed", STORIES: "#db2777",
 const SUGGESTION_STATUS_LABEL = { PENDING: "Pendente", DONE: "Feito", DISMISSED: "Descartado" };
 const SUGGESTION_STATUS_COLOR = { PENDING: "#2563eb", DONE: "#059669", DISMISSED: "#94a3b8" };
 
-function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSuggestionStatus, running }) {
+const SCHEDULED_STATUS_LABEL = { DRAFT: "Rascunho", SCHEDULED: "Agendado", PUBLISHING: "Publicando…", PUBLISHED: "Publicado", FAILED: "Falhou", CANCELLED: "Cancelado" };
+const SCHEDULED_STATUS_COLOR = { DRAFT: "#94a3b8", SCHEDULED: "#2563eb", PUBLISHING: "#d97706", PUBLISHED: "#059669", FAILED: "#dc2626", CANCELLED: "#94a3b8" };
+const PUBLISH_FORMAT_LABEL  = { PHOTO: "Foto", CAROUSEL: "Carrossel", REEL: "Reel", STORY: "Stories" };
+const SUGGESTION_TO_PUBLISH = { POST: "PHOTO", CAROUSEL: "CAROUSEL", STORIES: "STORY", REEL: "REEL" };
+
+function ScheduledPostBadge({ post }) {
+  if (!post) return null;
+  const label = SCHEDULED_STATUS_LABEL[post.status] || post.status;
+  const color = SCHEDULED_STATUS_COLOR[post.status] || "#64748b";
+  const when = post.status === "PUBLISHED" && post.publishedAt
+    ? fmtDatetime(post.publishedAt)
+    : post.scheduledFor ? fmtDatetime(post.scheduledFor) : "";
+  return (
+    <span className="plat-badge" style={{ background: color + "22", color, fontWeight: 600 }} title={post.errorMessage || ""}>
+      {label}{when ? ` · ${when}` : ""}{post.igPermalink ? <> · <a href={post.igPermalink} target="_blank" rel="noreferrer" style={{ color }}>ver</a></> : null}
+    </span>
+  );
+}
+
+// Default: amanhã às 09:00 BRT
+function defaultScheduledLocal() {
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 3600 * 1000);
+  const ymd = tomorrow.toLocaleDateString("sv-SE", { timeZone: "America/Belem" });
+  return { date: ymd, time: "09:00" };
+}
+
+// BRT (UTC-3) → ISO UTC. date "YYYY-MM-DD" + time "HH:MM" → "...Z"
+function brtToUtcIso(date, time) {
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.split(":").map(Number);
+  // BRT está 3h atrás de UTC; somar 3h para ir pra UTC.
+  return new Date(Date.UTC(y, m - 1, d, hh + 3, mm, 0)).toISOString();
+}
+
+function SchedulePostModal({ suggestion, existing, onClose, onSubmit, onCancel }) {
+  const initial = existing || {};
+  const def = defaultScheduledLocal();
+  const initialDate = initial.scheduledFor ? new Date(initial.scheduledFor).toLocaleDateString("sv-SE", { timeZone: "America/Belem" }) : def.date;
+  const initialTime = initial.scheduledFor
+    ? new Date(initial.scheduledFor).toLocaleTimeString("pt-BR", { timeZone: "America/Belem", hour12: false }).slice(0, 5)
+    : def.time;
+  const initialFormat = initial.format || (suggestion ? SUGGESTION_TO_PUBLISH[suggestion.format] : "PHOTO");
+
+  const [format, setFormat] = useState(initialFormat);
+  const [caption, setCaption] = useState(initial.caption || (suggestion ? suggestion.theme : ""));
+  const [mediaUrls, setMediaUrls] = useState(initial.mediaUrls?.length ? initial.mediaUrls : [""]);
+  const [date, setDate] = useState(initialDate);
+  const [time, setTime] = useState(initialTime);
+  const [firstComment, setFirstComment] = useState(initial.firstComment || "");
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const fase2 = ["REEL", "STORY"].includes(format);
+
+  function setUrl(i, v) {
+    setMediaUrls((u) => u.map((x, idx) => idx === i ? v : x));
+  }
+  function addUrl() { setMediaUrls((u) => [...u, ""]); }
+  function delUrl(i) { setMediaUrls((u) => u.length > 1 ? u.filter((_, idx) => idx !== i) : u); }
+
+  async function submit(e) {
+    e.preventDefault();
+    setErr(null);
+    const cleanUrls = mediaUrls.map((u) => u.trim()).filter(Boolean);
+    if (!caption.trim()) return setErr("Legenda obrigatória.");
+    if (!cleanUrls.length) return setErr("Pelo menos uma URL de mídia.");
+    if (format === "CAROUSEL" && (cleanUrls.length < 2 || cleanUrls.length > 10)) return setErr("Carrossel exige entre 2 e 10 imagens.");
+    if (format === "PHOTO" && cleanUrls.length !== 1) return setErr("Foto exige exatamente uma URL.");
+    if (fase2) return setErr("REEL e Stories ficam para a Fase 2.");
+
+    const scheduledFor = brtToUtcIso(date, time);
+    if (new Date(scheduledFor).getTime() < Date.now() - 60_000) return setErr("Data/hora deve estar no futuro.");
+
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        caption: caption.trim(),
+        mediaUrls: cleanUrls,
+        format,
+        scheduledFor,
+        firstComment: firstComment.trim() || null,
+        suggestionId: suggestion?.id || initial.suggestionId || null,
+      });
+      onClose();
+    } catch (e) {
+      setErr(e.message || "Falha ao agendar.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box modal-wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, padding: 24 }}>
+        <h3 style={{ marginBottom: 4 }}>{existing ? "Editar agendamento" : "Agendar publicação Instagram"}</h3>
+        {suggestion && <p style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>Sugestão: <strong>{suggestion.theme}</strong></p>}
+        <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+          <label>
+            <span>Formato</span>
+            <select value={format} onChange={(e) => setFormat(e.target.value)} className="status-select" style={{ width: "100%" }}>
+              <option value="PHOTO">Foto</option>
+              <option value="CAROUSEL">Carrossel (2-10 imagens)</option>
+              <option value="REEL" disabled>Reel — Fase 2</option>
+              <option value="STORY" disabled>Stories — Fase 2</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Legenda <small style={{ color: caption.length > 2200 ? "#dc2626" : "#94a3b8" }}>({caption.length}/2200)</small></span>
+            <textarea value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={2200} rows={5}
+              style={{ width: "100%", padding: 8, border: "1px solid #e2e8f0", borderRadius: 6, resize: "vertical", fontFamily: "inherit" }} />
+          </label>
+
+          <div>
+            <span style={{ fontSize: 13, color: "#475569", fontWeight: 500 }}>URL(s) da mídia (HTTPS pública, JPEG/PNG, ≤8MB)</span>
+            {mediaUrls.map((u, i) => (
+              <div key={i} style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <input type="url" value={u} onChange={(e) => setUrl(i, e.target.value)} placeholder="https://..."
+                  style={{ flex: 1, padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
+                {mediaUrls.length > 1 && (
+                  <button type="button" onClick={() => delUrl(i)} className="btn-secondary" style={{ padding: "4px 10px" }}>×</button>
+                )}
+              </div>
+            ))}
+            {format === "CAROUSEL" && mediaUrls.length < 10 && (
+              <button type="button" onClick={addUrl} className="btn-secondary" style={{ marginTop: 6, padding: "5px 12px", fontSize: 12 }}>
+                + adicionar imagem
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <label>
+              <span>Data (BRT)</span>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "100%", padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
+            </label>
+            <label>
+              <span>Hora (BRT)</span>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ width: "100%", padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
+            </label>
+          </div>
+
+          <label>
+            <span>1º comentário (opcional — bom para hashtags) <small style={{ color: "#94a3b8" }}>({firstComment.length}/2200)</small></span>
+            <textarea value={firstComment} onChange={(e) => setFirstComment(e.target.value)} maxLength={2200} rows={2}
+              style={{ width: "100%", padding: 8, border: "1px solid #e2e8f0", borderRadius: 6, resize: "vertical", fontFamily: "inherit" }} />
+          </label>
+
+          {err && <div style={{ color: "#dc2626", fontSize: 13, padding: "6px 10px", background: "#fee2e2", borderRadius: 4 }}>{err}</div>}
+
+          <div style={{ display: "flex", gap: 8, justifyContent: "space-between", marginTop: 6 }}>
+            <div>
+              {existing && existing.status !== "PUBLISHED" && existing.status !== "CANCELLED" && (
+                <button type="button" onClick={() => { onCancel(existing.id); onClose(); }} className="btn-secondary" style={{ color: "#dc2626" }}>
+                  Cancelar agendamento
+                </button>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={onClose} className="btn-secondary" disabled={submitting}>Fechar</button>
+              <button type="submit" className="btn-primary" disabled={submitting}>
+                {submitting ? "Salvando…" : existing ? "Atualizar" : "Agendar"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function InstagramTab({ posts, suggestions, scheduledBySuggestion, onRunCollection, onRunAnalysis, onSuggestionStatus, onScheduleSubmit, onScheduleCancel, running }) {
   const [subTab, setSubTab] = useState("content");
   const [filterAction, setFilterAction] = useState("ALL");
+  const [scheduleModal, setScheduleModal] = useState(null); // { suggestion, existing }
   const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
   const pendingCount = suggestions.filter((s) => s.status === "PENDING").length;
 
@@ -626,10 +799,14 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
                   <th>Formato</th>
                   <th>Justificativa</th>
                   <th>Status</th>
+                  <th>Agendamento</th>
                 </tr>
               </thead>
               <tbody>
-                {suggestions.map((s) => (
+                {suggestions.map((s) => {
+                  const sched = scheduledBySuggestion?.[s.id];
+                  const canSchedule = !sched || ["FAILED", "CANCELLED"].includes(sched.status);
+                  return (
                   <tr key={s.id} style={{ opacity: s.status === "DISMISSED" ? 0.45 : 1 }}>
                     <td className="camp-name">{s.theme}</td>
                     <td>
@@ -645,14 +822,39 @@ function InstagramTab({ posts, suggestions, onRunCollection, onRunAnalysis, onSu
                         {Object.entries(SUGGESTION_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
                     </td>
+                    <td>
+                      {sched && <ScheduledPostBadge post={sched} />}
+                      {canSchedule && (
+                        <button type="button" className="btn-secondary" style={{ marginLeft: sched ? 6 : 0, padding: "4px 10px", fontSize: 12 }}
+                          onClick={() => setScheduleModal({ suggestion: s, existing: null })}>
+                          📅 Agendar
+                        </button>
+                      )}
+                      {sched && ["DRAFT", "SCHEDULED"].includes(sched.status) && (
+                        <button type="button" className="btn-secondary" style={{ marginLeft: 6, padding: "4px 10px", fontSize: 12 }}
+                          onClick={() => setScheduleModal({ suggestion: s, existing: sched })}>
+                          Editar
+                        </button>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )
       )}
       </div>
+      {scheduleModal && (
+        <SchedulePostModal
+          suggestion={scheduleModal.suggestion}
+          existing={scheduleModal.existing}
+          onClose={() => setScheduleModal(null)}
+          onSubmit={(data) => onScheduleSubmit(data, scheduleModal.existing?.id)}
+          onCancel={onScheduleCancel}
+        />
+      )}
     </div>
   );
 }
@@ -818,6 +1020,7 @@ export default function App() {
   const [leads, setLeads] = useState([]);
   const [igPosts, setIgPosts] = useState([]);
   const [igSuggestions, setIgSuggestions] = useState([]);
+  const [scheduledPosts, setScheduledPosts] = useState([]);
   const [igRunning, setIgRunning] = useState(null);
   const [agents, setAgents] = useState([]);
   const [agentRunning, setAgentRunning] = useState(null);
@@ -832,7 +1035,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [s, dy, c, wr, goal, igData, leadsData, csData, agentsData] = await Promise.all([
+      const [s, dy, c, wr, goal, igData, leadsData, csData, agentsData, spData] = await Promise.all([
         apiFetch(`/dashboard/summary?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/daily?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/campaigns?days=${d}`).then((r) => r.json()),
@@ -842,6 +1045,7 @@ export default function App() {
         apiFetch(`/leads`).then((r) => r.json()),
         apiFetch(`/dashboard/content-suggestions`).then((r) => r.json()),
         apiFetch(`/dashboard/agents`).then((r) => r.json()),
+        apiFetch(`/api/scheduled-posts`).then((r) => r.json()).catch(() => ({ ok: false })),
       ]);
       if (s.ok) setSummary(s);
       if (dy.ok) setSeries(dy.series || []);
@@ -852,6 +1056,7 @@ export default function App() {
       if (leadsData.ok) setLeads(leadsData.leads || []);
       if (csData.ok) setIgSuggestions(csData.suggestions || []);
       if (agentsData.ok) setAgents(agentsData.agents || []);
+      if (spData.ok) setScheduledPosts(spData.posts || []);
     } catch {
       setError("Falha ao carregar dados do backend.");
     } finally {
@@ -968,6 +1173,33 @@ export default function App() {
     if (res.ok) {
       setIgSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
     }
+  }
+
+  async function refreshScheduledPosts() {
+    const r = await apiFetch("/api/scheduled-posts").then((res) => res.json()).catch(() => ({ ok: false }));
+    if (r.ok) setScheduledPosts(r.posts || []);
+  }
+
+  async function handleScheduleSubmit(data, existingId) {
+    const path = existingId ? `/api/scheduled-posts/${existingId}` : "/api/scheduled-posts";
+    const method = existingId ? "PUT" : "POST";
+    const res = await apiFetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const d = await res.json();
+    if (!d.ok) throw new Error(d.message || "Falha ao agendar.");
+    await refreshScheduledPosts();
+  }
+
+  async function handleScheduleCancel(id) {
+    const res = await apiFetch(`/api/scheduled-posts/${id}`, { method: "DELETE" });
+    if (res.ok) await refreshScheduledPosts();
+  }
+
+  // Map suggestionId → último ScheduledPost dela (mais recente)
+  const scheduledBySuggestion = {};
+  for (const sp of scheduledPosts) {
+    if (!sp.suggestionId) continue;
+    const cur = scheduledBySuggestion[sp.suggestionId];
+    if (!cur || new Date(sp.createdAt) > new Date(cur.createdAt)) scheduledBySuggestion[sp.suggestionId] = sp;
   }
 
   const t = summary?.totals;
@@ -1134,9 +1366,12 @@ export default function App() {
           <InstagramTab
             posts={igPosts}
             suggestions={igSuggestions}
+            scheduledBySuggestion={scheduledBySuggestion}
             onRunCollection={handleIgCollection}
             onRunAnalysis={handleIgAnalysis}
             onSuggestionStatus={handleSuggestionStatus}
+            onScheduleSubmit={handleScheduleSubmit}
+            onScheduleCancel={handleScheduleCancel}
             running={igRunning}
           />
         )}
