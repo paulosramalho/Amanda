@@ -1,6 +1,6 @@
 # Setup de Integrações — Amanda Ads App
 
-Atualizado em: 19/04/2026 (tokens e alertas críticos)
+Atualizado em: 24/04/2026 (renovação do token Instagram + procedimento detalhado)
 
 ---
 
@@ -94,27 +94,51 @@ Atualizado em: 19/04/2026 (tokens e alertas críticos)
 | Item | Valor |
 |------|-------|
 | ENV | INSTAGRAM_ACCESS_TOKEN |
-| Permissões | `instagram_basic`, `instagram_manage_comments` |
-| App | AMR Ads Connector (ID: 2022860615281558) |
-| Gerado em | 19/04/2026 (via Graph API Explorer) |
-| Expira em | ~19/06/2026 (60 dias) |
+| Permissões atuais | `instagram_basic`, `instagram_manage_comments`, `pages_show_list`, `pages_read_engagement`, `business_management` |
+| Permissões a adicionar | `instagram_manage_insights` (para reach/impressions/etc) e `instagram_content_publish` (para Fase 1 do agendamento) |
+| App | AMR Ads Connector (ID: 2022860615281558) — **NÃO** confundir com AMR Controles (1381147490481851), usado pelo Meta Ads |
+| Conta admin | `amandaramalhoadv@gmail.com` (Amanda) — Paulo não admina a Page "Amanda M Ramalho" |
+| Page do Facebook linkada ao IG | "Amanda M Ramalho" (ID `110004380611336`) — categoria "Blog pessoal" |
+| Gerado em | 24/04/2026 (via Graph API Explorer) |
+| Expira em | ~23/06/2026 (60 dias) |
 | Alerta automático | A partir de 45 dias de uso (ENV: INSTAGRAM_TOKEN_ISSUED_DATE) |
 
-### Como renovar o token
-1. Acessar Graph API Explorer: https://developers.facebook.com/tools/explorer/
-2. Selecionar app `AMR Ads Connector`
-3. Adicionar permissões: `instagram_basic`, `instagram_manage_comments`
-4. Gerar token e copiar para `INSTAGRAM_ACCESS_TOKEN` no Render
-5. Atualizar `INSTAGRAM_TOKEN_ISSUED_DATE` para a data atual no Render
-6. O Render fará redeploy automático
+### Como renovar o token (procedimento testado em 24/04/2026)
+1. **Logar como Amanda** no Facebook: `amandaramalhoadv@gmail.com`. Sem isso, a Page "Amanda M Ramalho" não aparece.
+2. Acessar Graph API Explorer: https://developers.facebook.com/tools/explorer/
+3. No canto superior direito, **trocar o app para `AMR Ads Connector`** (ID 2022860615281558).
+4. Adicionar permissões: `instagram_basic`, `instagram_manage_insights`, `instagram_manage_comments`, `pages_show_list`, `pages_read_engagement`, `business_management`. Para a Fase 1 do agendamento, adicionar também `instagram_content_publish`.
+5. Clicar **Generate Access Token**. Na tela de "Edit Access" / seleção de Pages, **marcar "Amanda M Ramalho"** (sem isso, o token não vê o IG `17841401371420027`).
+6. **Validar com Token Debugger** (https://developers.facebook.com/tools/debug/accesstoken/): confirmar App ID `2022860615281558`, escopos esperados, e que IG `17841401371420027` está listado em `instagram_basic` e `instagram_manage_insights`.
+7. **Estender token** clicando em "Estender token de acesso" no próprio Token Debugger — recebe long-lived (60 dias). Sem precisar do APP_SECRET.
+8. No Render → `amanda-api` → Environment:
+   - `INSTAGRAM_ACCESS_TOKEN` = novo long-lived
+   - `INSTAGRAM_TOKEN_ISSUED_DATE` = data de hoje (YYYY-MM-DD)
+9. Render faz redeploy automático (~2 min). Disparar manualmente "Coletor de Posts" para validar.
+
+### Validação (debug rápido)
+Cole no navegador (logado como Amanda) com o novo token:
+```
+https://graph.facebook.com/v22.0/me/accounts?access_token=NOVO_TOKEN
+```
+Confirmar que aparece a Page "Amanda M Ramalho" (ID `110004380611336`) com seu `access_token`. Em seguida:
+```
+https://graph.facebook.com/v22.0/110004380611336?fields=instagram_business_account,name&access_token=PAGE_TOKEN
+```
+Deve retornar `instagram_business_account.id = 17841401371420027`.
 
 ### Dados coletados por post
 - caption, mediaType, likeCount, commentsCount, publishedAt, permalink
-- reach, impressions, saved, shares, plays (quando disponíveis — requer `instagram_business_manage_insights`)
+- reach, impressions, saved, shares, plays — exigem `instagram_manage_insights` no token. Sem ele, ficam como `null` (graceful degradation: `fetchInsights()` em `instagramCollectionJob.js:44-55` retorna `{}` no catch).
 
-### Nota sobre permissões
-- `instagram_business_manage_insights` não estava disponível no Explorer no momento da configuração
-- Métricas de alcance/impressões ficam como null — análise do Claude usa curtidas e comentários
+### Histórico
+- 19/04/2026: Token original gerado pela Amanda — escopos `instagram_basic` + `instagram_manage_comments`. Sem `instagram_manage_insights` (não estava disponível no Explorer naquele momento).
+- 24/04/2026: Renovação após expiração. Procedimento documentado acima. Continua sem `instagram_manage_insights` na primeira tentativa — adicionar na próxima renovação para ativar coleta de métricas. Necessário também `instagram_content_publish` para Fase 1 do agendamento.
+
+### Credenciais — onde estão
+- `C:\Amanda\Depósito\Instagram.txt` — App ID, App Secret e tokens (linha "Token permanente" + data de expiração).
+- `C:\Amanda\Depósito\Instagram_Token_Exchange_URL.txt` — atalho do "Estender token de acesso" + URL manual de troca.
+- Pasta `Depósito` está no `.gitignore` (`"Depósito/"` com aspas e acento).
 
 ---
 

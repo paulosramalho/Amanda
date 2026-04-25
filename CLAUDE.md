@@ -106,6 +106,12 @@ ANTHROPIC_API_KEY=          # Claude Haiku — análise de tendências e conteú
 YOUTUBE_API_KEY=            # YouTube Data API v3 — quota: 10.000 unidades/dia
 INSTAGRAM_ACCESS_TOKEN=     # token manual, expira em 60 dias — emite alerta em 50 dias
 INSTAGRAM_TOKEN_ISSUED_DATE=# YYYY-MM-DD — base para cálculo de expiração
+INSTAGRAM_USER_ID=          # 17841401371420027 (@amandamramalho)
+INSTAGRAM_ENABLED=          # true/false — liga jobs de coleta IG
+INSTAGRAM_SCHEDULER_ENABLED=# true/false — liga ciclo diário automático
+INSTAGRAM_RUN_UTC_HOUR=     # 4 = 01h BRT
+INSTAGRAM_NOTIFY_EMAILS=    # destinatários do e-mail diário de análise
+IG_PUBLISH_ENABLED=         # true/false — gate de segurança da publicação automática (Fase 1)
 GOOGLE_ADS_*                # credenciais OAuth2 Google Ads
 META_ADS_ACCESS_TOKEN=      # token de acesso Meta Ads
 SITE_SECRET=                # autenticação do site → endpoint de leads
@@ -139,4 +145,24 @@ Usar `/novo-job` para scaffoldar novos jobs neste padrão.
 - O projeto não tem testes automatizados — validar manualmente antes de fazer push.
 - `google-trends-api` `dailyTrends()` está quebrado (retorna 404 HTML). Usar `relatedQueries()` + Google News RSS em vez disso.
 - YouTube API key está no `.env` como `YOUTUBE_API_KEY`. Se ausente, o job continua sem a fonte (graceful degradation via `console.warn`).
-- Token do Instagram expira em 60 dias. O scheduler emite alerta por e-mail após 50 dias (configurável em `INSTAGRAM_TOKEN_ISSUED_DATE`).
+- Token do Instagram expira em 60 dias. O scheduler emite alerta por e-mail após 50 dias (configurável em `INSTAGRAM_TOKEN_ISSUED_DATE`). Procedimento completo de renovação em `docs/SETUP_INTEGRACOES.md` (seção Instagram).
+
+---
+
+## Agendamento e Publicação Instagram (em implementação a partir de 2026-04-24)
+
+Substituição do mLabs pelo ciclo editorial integrado: a sugestão de IA vira agendamento, o sistema publica no Instagram no horário, marca a sugestão como FEITA, e o coletor traz a métrica para análise — tudo dentro do painel.
+
+**Plano completo:** `Depósito/Plano — Agendamento e Publicação Instagram.html` (10 seções: contexto, ciclo, comparativo mLabs, API técnica, fases, schema, backend, frontend, impacto Addere, checklist).
+
+**Fase 1 — MVP (em curso):**
+- Schema novo: `ScheduledPost` + enums `ScheduledPostStatus` (DRAFT/SCHEDULED/PUBLISHING/PUBLISHED/FAILED/CANCELLED) e `PublishFormat` (PHOTO/CAROUSEL/REEL/STORY)
+- Backend: `routes/scheduledPosts.js` (5 rotas REST) + `schedulers/postPublisher.js` (tick a cada 5min)
+- Frontend: `SchedulePostModal.jsx`, `ScheduledPostBadge.jsx`, botão "Agendar" na tabela de sugestões
+- Suporte: foto + carrossel + primeiro comentário opcional
+- Auto-marca `ContentSuggestion.status = DONE` após publicar
+- Gate de segurança: `IG_PUBLISH_ENABLED=false` enquanto não validado
+
+**Fases seguintes:** Calendário Editorial + Reel (Fase 2), Upload de mídia via R2/S3 (Fase 3), Multi-cliente para Addere (Fase 4).
+
+**Pré-requisito de token:** o `INSTAGRAM_ACCESS_TOKEN` precisa ter os escopos `instagram_content_publish` (para publicar) e `instagram_manage_insights` (para métricas). Renovação detalhada em `docs/SETUP_INTEGRACOES.md`.

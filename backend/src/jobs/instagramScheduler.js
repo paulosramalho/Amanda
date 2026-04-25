@@ -37,12 +37,16 @@ async function runFullCycle({ triggeredBy = "scheduler" } = {}) {
         title: "Token do Instagram expirado",
         body: `O token de acesso à conta @amandamramalho foi invalidado.\nErro: ${e.message.slice(0, 300)}`,
         steps: [
-          'Acesse o Graph API Explorer: https://developers.facebook.com/tools/explorer/',
-          "Selecione o app <strong>AMR Controles</strong>",
-          "Adicione as permissões: <code>instagram_business_basic</code>, <code>instagram_manage_comments</code>",
-          "Gere o token e cole em <strong>Render → amanda-api → Environment → INSTAGRAM_ACCESS_TOKEN</strong>",
-          `Atualize <strong>INSTAGRAM_TOKEN_ISSUED_DATE</strong> para a data de hoje`,
-          "O Render fará redeploy automático",
+          "Logar no Facebook como <strong>amandaramalhoadv@gmail.com</strong> (Amanda) — Paulo não admina a Page necessária",
+          'Acessar Graph API Explorer: https://developers.facebook.com/tools/explorer/',
+          "Trocar o app para <strong>AMR Ads Connector</strong> (ID 2022860615281558)",
+          "Adicionar permissões: <code>instagram_basic</code>, <code>instagram_manage_insights</code>, <code>instagram_manage_comments</code>, <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>business_management</code> (e <code>instagram_content_publish</code> se a Fase 1 do agendamento já estiver ativa)",
+          'Generate Access Token → na tela de "Edit Access" marcar a Page <strong>Amanda M Ramalho</strong> (ID 110004380611336)',
+          "Validar no Token Debugger e clicar <strong>Estender token de acesso</strong> — recebe long-lived (60 dias)",
+          "Cole em <strong>Render → amanda-api → Environment → INSTAGRAM_ACCESS_TOKEN</strong>",
+          `Atualize <strong>INSTAGRAM_TOKEN_ISSUED_DATE</strong> para a data de hoje (YYYY-MM-DD)`,
+          "Render faz redeploy automático (~2 min). Disparar manualmente o Coletor de Posts para validar.",
+          "Procedimento detalhado em <code>docs/SETUP_INTEGRACOES.md</code>",
         ],
       }).catch(() => {});
     }

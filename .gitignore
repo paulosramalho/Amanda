@@ -19,5 +19,5 @@ Thumbs.db
 .idea/
 
 # Credenciais sensíveis
-"Depósito/"
+Depósito/
 client_secret*.json

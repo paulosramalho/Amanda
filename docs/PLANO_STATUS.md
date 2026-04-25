@@ -1,7 +1,7 @@
 # Plano de Implantação e Status — Amanda Ads App
 
-Atualizado em: 19/04/2026
-Escopo: Google Ads, Meta Ads, Instagram orgânico (@amandamramalho), leads do site, agentes de IA.
+Atualizado em: 24/04/2026
+Escopo: Google Ads, Meta Ads, Instagram orgânico (@amandamramalho), leads do site, agentes de IA, **agendamento e publicação Instagram (em implementação)**.
 Regra de data de negócio: sempre `UTC-3 T12:00:00` via `toBusinessDateAtNoon()`.
 
 ---
@@ -72,12 +72,13 @@ Protegido por JWT (`DASHBOARD_PASSWORD`). Abas:
 | NOTIFY_EMAIL_FROM | ✅ | ads@amandaramalho.adv.br |
 | ANTHROPIC_API_KEY | ✅ | Claude Haiku — análise de posts |
 | INSTAGRAM_ENABLED | ✅ | true |
-| INSTAGRAM_ACCESS_TOKEN | ✅ | **Expira ~19/06/2026** — renovar antes |
+| INSTAGRAM_ACCESS_TOKEN | ✅ | **Expira ~23/06/2026** — renovar antes (alerta automático) |
 | INSTAGRAM_USER_ID | ✅ | 17841401371420027 (@amandamramalho) |
 | INSTAGRAM_SCHEDULER_ENABLED | ✅ | true |
 | INSTAGRAM_RUN_UTC_HOUR | ✅ | 4 (01h BRT) |
 | INSTAGRAM_NOTIFY_EMAILS | ✅ | amandaramalhoadv@gmail.com |
-| INSTAGRAM_TOKEN_ISSUED_DATE | ✅ | 2026-04-19 |
+| INSTAGRAM_TOKEN_ISSUED_DATE | ✅ | 2026-04-24 |
+| IG_PUBLISH_ENABLED | 🔲 | Adicionar ao iniciar Fase 1 do agendamento (default `false`) |
 | SITE_SECRET | ✅ | Compartilhado com Vercel do site |
 | ADMIN_ALERT_EMAILS | ✅ | paulosramalho@gmail.com,amandaramalhoadv@gmail.com |
 | TELEGRAM_BOT_TOKEN | ✅ | Bot `AMR Alerts Bot` — alerta crítico por Telegram |
@@ -98,7 +99,7 @@ Protegido por JWT (`DASHBOARD_PASSWORD`). Abas:
 | Data | Ação |
 |------|------|
 | 10/06/2026 | Renovar Meta Ads token (expira ~17/06/2026) |
-| 03/06/2026 | Renovar Instagram token (emitido 19/04/2026 — alerta automático a partir de 45 dias) |
+| 08/06/2026 | Renovar Instagram token (emitido 24/04/2026 — alerta automático a partir de 45 dias) |
 
 ---
 
@@ -117,3 +118,26 @@ Protegido por JWT (`DASHBOARD_PASSWORD`). Abas:
 ## Integrações — resumo
 
 Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
+
+---
+
+## Em implementação — Agendamento e Publicação Instagram
+
+**Início:** 24/04/2026 (virada do ciclo semanal — combinado em 21/04/2026).
+**Plano completo:** `Depósito/Plano — Agendamento e Publicação Instagram.html`.
+**Fase atual:** Fase 1 — MVP (ciclo fechado básico). Esforço estimado: 3-4 dias de desenvolvimento.
+
+### Status por tarefa
+| Tarefa | Status |
+|--------|--------|
+| Schema Prisma — `ScheduledPost` + enums | 🔲 A implementar |
+| Migration `add-scheduled-posts` | 🔲 A implementar |
+| Backend — `routes/scheduledPosts.js` (5 rotas REST) | 🔲 A implementar |
+| Backend — `schedulers/postPublisher.js` (tick 5min) | 🔲 A implementar |
+| `IG_PUBLISH_ENABLED=false` no Render | 🔲 A configurar |
+| Frontend — `SchedulePostModal.jsx` | 🔲 A implementar |
+| Frontend — `ScheduledPostBadge.jsx` + botão "Agendar" | 🔲 A implementar |
+| Token com escopos `instagram_content_publish` + `instagram_manage_insights` | 🔲 A renovar |
+| Teste end-to-end com `IG_PUBLISH_ENABLED=true` local | 🔲 |
+| Ativar `IG_PUBLISH_ENABLED=true` no Render | 🔲 |
+| Atualizar manual `AMR Ads Control — Manual de Utilização` para v1.2 | 🔲 |

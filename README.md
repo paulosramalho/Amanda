@@ -8,9 +8,11 @@ Painel de controle para monitoramento de anúncios (Google Ads, Meta Ads), conte
 Amanda/
 ├── backend/          # API Node.js (Express + Prisma) — deploy no Render
 ├── frontend/         # App Vite + React — deploy na Vercel
-└── docs/
-    ├── PLANO_STATUS.md         # status de implantação e ENVs de produção
-    └── SETUP_INTEGRACOES.md    # contas, IDs, OAuth e tokens por integração
+├── docs/
+│   ├── PLANO_STATUS.md         # status de implantação e ENVs de produção
+│   └── SETUP_INTEGRACOES.md    # contas, IDs, OAuth e tokens por integração
+└── Depósito/         # planos, manuais, credenciais (no .gitignore)
+    └── Plano — Agendamento e Publicação Instagram.html  # plano da Fase 1 em curso
 ```
 
 ---
@@ -179,5 +181,19 @@ Ver `backend/.env` para desenvolvimento local e `docs/PLANO_STATUS.md` para prod
 
 - **Timezone:** UTC-3 (America/Belem). Toda lógica de "hoje" usa `toBusinessDateAtNoon()`.
 - **Data de negócio:** `YYYY-MM-DDT12:00:00Z` (meio-dia UTC = 09h BRT — evita cruzamento de dia).
-- **Token Instagram:** expira em ~60 dias. Alerta por e-mail a partir de 45 dias de uso.
+- **Token Instagram:** expira em ~60 dias. Alerta por e-mail a partir de 45 dias de uso. Procedimento detalhado de renovação em `docs/SETUP_INTEGRACOES.md`.
 - **Alertas críticos:** falhas de token ou coleta disparam e-mail (`ADMIN_ALERT_EMAILS`) + mensagem no Telegram (`TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`) com passos de correção.
+
+---
+
+## Em implementação — Agendamento e Publicação Instagram (Fase 1)
+
+A partir de 24/04/2026 o sistema deixa de depender do mLabs: a sugestão de IA vira agendamento dentro do painel, o sistema publica no Instagram no horário, marca a sugestão como FEITA, e o coletor traz a métrica para análise.
+
+**Plano completo:** `Depósito/Plano — Agendamento e Publicação Instagram.html` (10 seções).
+
+**Novidades do backend:** modelo Prisma `ScheduledPost`, rotas `/api/scheduled-posts` (5 endpoints), `schedulers/postPublisher.js` (tick 5min), env `IG_PUBLISH_ENABLED` (default `false`).
+
+**Novidades do frontend:** botão "Agendar" na tabela de sugestões, `SchedulePostModal.jsx`, `ScheduledPostBadge.jsx`.
+
+**Pré-requisito:** token Instagram com escopos `instagram_content_publish` + `instagram_manage_insights` (não estão no token atual — adicionar na próxima renovação).
