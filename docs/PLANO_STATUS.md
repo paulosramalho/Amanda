@@ -121,23 +121,46 @@ Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
 
 ---
 
-## Em implementação — Agendamento e Publicação Instagram
+## Agendamento e Publicação Instagram — Status
 
 **Início:** 24/04/2026 (virada do ciclo semanal — combinado em 21/04/2026).
 **Plano completo:** `Depósito/Plano — Agendamento e Publicação Instagram.html`.
-**Fase atual:** Fase 1 — MVP (ciclo fechado básico). Esforço estimado: 3-4 dias de desenvolvimento.
+**Manual standalone:** `Depósito/Manual — Agendamento e Publicação Instagram.html`.
+**Manual principal:** seção 10 em `Depósito/AMR Ads Control — Manual de Utilização.html` (v1.2).
 
-### Status por tarefa
+### Fase 1 — MVP (✅ COMPLETA — 25/04/2026)
 | Tarefa | Status |
 |--------|--------|
-| Schema Prisma — `ScheduledPost` + enums | 🔲 A implementar |
-| Migration `add-scheduled-posts` | 🔲 A implementar |
-| Backend — `routes/scheduledPosts.js` (5 rotas REST) | 🔲 A implementar |
-| Backend — `schedulers/postPublisher.js` (tick 5min) | 🔲 A implementar |
-| `IG_PUBLISH_ENABLED=false` no Render | 🔲 A configurar |
-| Frontend — `SchedulePostModal.jsx` | 🔲 A implementar |
-| Frontend — `ScheduledPostBadge.jsx` + botão "Agendar" | 🔲 A implementar |
-| Token com escopos `instagram_content_publish` + `instagram_manage_insights` | 🔲 A renovar |
-| Teste end-to-end com `IG_PUBLISH_ENABLED=true` local | 🔲 |
-| Ativar `IG_PUBLISH_ENABLED=true` no Render | 🔲 |
-| Atualizar manual `AMR Ads Control — Manual de Utilização` para v1.2 | 🔲 |
+| Schema Prisma — `ScheduledPost` + enums (`ScheduledPostStatus`, `PublishFormat`) | ✅ |
+| Migration `20260424183000_add_scheduled_posts` (aplicada manualmente via Neon SQL Editor) | ✅ |
+| Backend — 5 rotas inline em `server.js` (`/api/scheduled-posts` GET/POST/PUT/DELETE + publish-now) | ✅ |
+| Backend — `jobs/postPublisherScheduler.js` (tick 5min, retry 3x, `JobExecution` log) | ✅ |
+| Backend — `instagram_notify` agora também grava `JobExecution` | ✅ |
+| `IG_PUBLISH_ENABLED` configurado no Render (true) | ✅ |
+| Frontend — `SchedulePostModal`, `ScheduledPostBadge`, botão "📅 Agendar" na sub-aba Sugestões | ✅ |
+| Token com escopos `instagram_content_publish` + `instagram_manage_insights` | ✅ (renovado 25/04/2026) |
+| `AGENT_REGISTRY` + `AGENT_JOB_ENDPOINTS` para `post_publisher` e `instagram_notify` | ✅ |
+| Manual `AMR Ads Control — Manual de Utilização` atualizado para v1.2 | ✅ |
+| Manual standalone `Manual — Agendamento e Publicação Instagram` v1.0 criado | ✅ |
+| Teste end-to-end com publicação real | 🔲 pendente — quando Amanda quiser publicar 1º post real |
+
+### Fase 2 — Calendário + Reel (🟡 1 de 5 itens)
+| Tarefa | Status |
+|--------|--------|
+| **Calendário Editorial visual** — sub-aba "Calendário" em Conteúdo, grade mensal 7×6 com cards por status | ✅ (commit `cb164fa`, 25/04/2026) |
+| Reciclagem — botão "Re-agendar este post" em InstagramPost de alta performance | 🔲 próximo |
+| IA sugere hashtags no `SchedulePostModal` (Claude Haiku) | 🔲 |
+| IA sugere melhor horário com base no histórico de engajamento | 🔲 |
+| Suporte a Reel (publicação assíncrona com poll do `status_code`) | 🔲 |
+
+### Fase 3 — Upload de mídia direto (🔲)
+- Bucket Cloudflare R2 ou AWS S3
+- Endpoint de upload no backend
+- Componente `MediaUpload` no frontend
+- Biblioteca de mídia (galeria)
+
+### Fase 4 — Multi-cliente Addere (🔲)
+- Multi-conta Instagram por cliente
+- Fluxo de aprovação editor → revisor → publicador
+- Multi-plataforma (LinkedIn etc)
+- White-label
