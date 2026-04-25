@@ -566,7 +566,9 @@ function brtToUtcIso(date, time) {
   return new Date(Date.UTC(y, m - 1, d, hh + 3, mm, 0)).toISOString();
 }
 
-function SchedulePostModal({ suggestion, existing, defaultDate, onClose, onSubmit, onCancel }) {
+const IG_MEDIA_TO_PUBLISH = { IMAGE: "PHOTO", CAROUSEL_ALBUM: "CAROUSEL", VIDEO: "REEL", REELS: "REEL" };
+
+function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onClose, onSubmit, onCancel }) {
   const initial = existing || {};
   const def = defaultScheduledLocal();
   const startDate = initial.scheduledFor
@@ -575,10 +577,18 @@ function SchedulePostModal({ suggestion, existing, defaultDate, onClose, onSubmi
   const startTime = initial.scheduledFor
     ? new Date(initial.scheduledFor).toLocaleTimeString("pt-BR", { timeZone: "America/Belem", hour12: false }).slice(0, 5)
     : def.time;
-  const initialFormat = initial.format || (suggestion ? SUGGESTION_TO_PUBLISH[suggestion.format] : "PHOTO");
+  const initialFormat = initial.format
+    || (suggestion ? SUGGESTION_TO_PUBLISH[suggestion.format] : null)
+    || (recycleFrom ? IG_MEDIA_TO_PUBLISH[recycleFrom.mediaType] : null)
+    || "PHOTO";
 
   const [format, setFormat] = useState(initialFormat);
-  const [caption, setCaption] = useState(initial.caption || (suggestion ? suggestion.theme : ""));
+  const [caption, setCaption] = useState(
+    initial.caption
+    ?? (recycleFrom?.caption ?? "")
+    ?? (suggestion ? suggestion.theme : "")
+    ?? ""
+  );
   const [mediaUrls, setMediaUrls] = useState(initial.mediaUrls?.length ? initial.mediaUrls : [""]);
   const [date, setDate] = useState(startDate);
   const [time, setTime] = useState(startTime);
@@ -628,8 +638,14 @@ function SchedulePostModal({ suggestion, existing, defaultDate, onClose, onSubmi
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box modal-wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, padding: 24 }}>
-        <h3 style={{ marginBottom: 4 }}>{existing ? "Editar agendamento" : "Agendar publicação Instagram"}</h3>
+        <h3 style={{ marginBottom: 4 }}>{existing ? "Editar agendamento" : recycleFrom ? "🔄 Re-agendar post" : "Agendar publicação Instagram"}</h3>
         {suggestion && <p style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>Sugestão: <strong>{suggestion.theme}</strong></p>}
+        {recycleFrom && (
+          <p style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>
+            Reciclando: <a href={recycleFrom.permalink} target="_blank" rel="noreferrer" style={{ color: "#2563eb" }}>{(recycleFrom.caption || "(sem legenda)").slice(0, 60)}{recycleFrom.caption?.length > 60 ? "…" : ""}</a>
+            <br/><span style={{ fontSize: 11, color: "#d97706" }}>⚠ A URL da mídia precisa ser nova (publica) — Instagram não baixa de outras URLs do próprio Instagram.</span>
+          </p>
+        )}
         <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
           <label>
             <span>Formato</span>
@@ -980,10 +996,13 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
                   <th>Justificativa</th>
                   <th>Sugestão</th>
                   <th>Data</th>
+                  <th>Reciclar</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => (
+                {filtered.map((p) => {
+                  const recyclable = ["IMAGE", "CAROUSEL_ALBUM"].includes(p.mediaType);
+                  return (
                   <tr key={p.id}>
                     <td className="camp-name">
                       {p.permalink
@@ -1001,8 +1020,20 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
                     <td className="ig-reasoning">{p.analysis?.reasoning || "—"}</td>
                     <td className="ig-reasoning">{p.analysis?.suggestion || "—"}</td>
                     <td>{fmtDateFull(p.publishedAt)}</td>
+                    <td>
+                      {recyclable ? (
+                        <button type="button" className="btn-secondary" style={{ padding: "4px 10px", fontSize: 12 }}
+                          onClick={() => setScheduleModal({ suggestion: null, existing: null, recycleFrom: p })}
+                          title="Re-agendar este post (legenda e formato pré-preenchidos; nova URL de mídia obrigatória)">
+                          🔄
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 11, color: "#94a3b8" }} title="Reel/Vídeo não suportado na Fase 1">—</span>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1081,6 +1112,7 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
         <SchedulePostModal
           suggestion={scheduleModal.suggestion}
           existing={scheduleModal.existing}
+          recycleFrom={scheduleModal.recycleFrom}
           onClose={() => setScheduleModal(null)}
           onSubmit={(data) => onScheduleSubmit(data, scheduleModal.existing?.id)}
           onCancel={onScheduleCancel}
