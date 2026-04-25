@@ -24,6 +24,12 @@ import { runPopulateSuggestionsJob } from "./jobs/populateSuggestionsJob.js";
 import { runContentSuggestionsJob } from "./jobs/contentSuggestionsJob.js";
 import { runTrendingSuggestionsJob } from "./jobs/trendingSuggestionsJob.js";
 import { startInstagramScheduler, stopInstagramScheduler, runInstagramCycle } from "./jobs/instagramScheduler.js";
+import {
+  startPostPublisherScheduler,
+  stopPostPublisherScheduler,
+  runPostPublisherTick,
+  publishNow,
+} from "./jobs/postPublisherScheduler.js";
 import { sendAdminAlert } from "./lib/adminNotify.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
 
@@ -620,6 +626,14 @@ app.get("/", (_req, res) => {
       collectionRun: "POST /jobs/instagram-collection/run",
       analysisRun: "POST /jobs/post-analysis/run",
     },
+    scheduledPosts: {
+      list:        "GET /api/scheduled-posts",
+      create:      "POST /api/scheduled-posts",
+      update:      "PUT /api/scheduled-posts/:id",
+      cancel:      "DELETE /api/scheduled-posts/:id",
+      publishNow:  "POST /api/scheduled-posts/:id/publish-now",
+      publisherTickRun: "POST /jobs/post-publisher/run",
+    },
   });
 });
 
@@ -690,6 +704,7 @@ const AGENT_REGISTRY = [
   { jobName: "trending_suggestions",  label: "Agente de Tendências",     description: "Varre Conjur, JOTA, Migalhas, YouTube BR e Google Trends BR em busca de pautas em alta e sugere posts." },
   { jobName: "ads_collection",        label: "Coletor de Anúncios",      description: "Coleta métricas diárias de campanhas no Google Ads e Meta Ads." },
   { jobName: "instagram_notify",      label: "Notificador",              description: "Envia e-mail diário com posts INVEST/REMOVE e alerta de renovação do token." },
+  { jobName: "post_publisher",        label: "Publicador de Posts",      description: "Publica posts agendados no Instagram (foto + carrossel) — tick a cada 5min. Gate: IG_PUBLISH_ENABLED." },
 ];
 
 app.get("/dashboard/agents", async (_req, res) => {
@@ -753,6 +768,109 @@ app.post("/jobs/admin-alert/test", requireAuth, async (req, res) => {
   }
 });
 
+// ─── Agendamento e Publicação Instagram (Fase 1) ──────────────────────────────
+// Plano completo: Depósito/Plano — Agendamento e Publicação Instagram.html
+
+app.get("/api/scheduled-posts", requireAuth, async (req, res) => {
+  try {
+    const { status, dateFrom, dateTo, suggestionId } = req.query;
+    const where = {};
+    if (status) where.status = String(status);
+    if (suggestionId) where.suggestionId = String(suggestionId);
+    if (dateFrom || dateTo) {
+      where.scheduledFor = {};
+      if (dateFrom) where.scheduledFor.gte = new Date(String(dateFrom));
+      if (dateTo)   where.scheduledFor.lte = new Date(String(dateTo));
+    }
+    const posts = await prisma.scheduledPost.findMany({
+      where,
+      orderBy: { scheduledFor: "asc" },
+      include: { suggestion: { select: { id: true, theme: true, format: true } } },
+    });
+    res.json({ ok: true, posts });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/api/scheduled-posts", requireAuth, async (req, res) => {
+  try {
+    const { caption, mediaUrls, format, scheduledFor, suggestionId, firstComment, status } = req.body || {};
+    if (!caption || !Array.isArray(mediaUrls) || !mediaUrls.length || !format || !scheduledFor) {
+      return res.status(400).json({ ok: false, message: "Campos obrigatórios: caption, mediaUrls[], format, scheduledFor" });
+    }
+    if (format === "CAROUSEL" && (mediaUrls.length < 2 || mediaUrls.length > 10)) {
+      return res.status(400).json({ ok: false, message: "Carrossel exige entre 2 e 10 imagens" });
+    }
+    const post = await prisma.scheduledPost.create({
+      data: {
+        caption,
+        mediaUrls,
+        format,
+        firstComment: firstComment || null,
+        scheduledFor: new Date(scheduledFor),
+        suggestionId: suggestionId || null,
+        status: status === "DRAFT" ? "DRAFT" : "SCHEDULED",
+      },
+    });
+    res.status(201).json({ ok: true, post });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.put("/api/scheduled-posts/:id", requireAuth, async (req, res) => {
+  try {
+    const current = await prisma.scheduledPost.findUnique({ where: { id: req.params.id } });
+    if (!current) return res.status(404).json({ ok: false, message: "Post agendado não encontrado" });
+    if (!["DRAFT", "SCHEDULED"].includes(current.status)) {
+      return res.status(400).json({ ok: false, message: `Não é possível editar post com status ${current.status}` });
+    }
+    const { caption, mediaUrls, format, scheduledFor, firstComment, status } = req.body || {};
+    const data = {};
+    if (caption !== undefined)      data.caption = caption;
+    if (mediaUrls !== undefined)    data.mediaUrls = mediaUrls;
+    if (format !== undefined)       data.format = format;
+    if (scheduledFor !== undefined) data.scheduledFor = new Date(scheduledFor);
+    if (firstComment !== undefined) data.firstComment = firstComment || null;
+    if (status !== undefined && ["DRAFT", "SCHEDULED"].includes(status)) data.status = status;
+    const post = await prisma.scheduledPost.update({ where: { id: req.params.id }, data });
+    res.json({ ok: true, post });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.delete("/api/scheduled-posts/:id", requireAuth, async (req, res) => {
+  try {
+    const post = await prisma.scheduledPost.update({
+      where: { id: req.params.id },
+      data: { status: "CANCELLED" },
+    });
+    res.json({ ok: true, post });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/api/scheduled-posts/:id/publish-now", requireAuth, async (req, res) => {
+  try {
+    const result = await publishNow(req.params.id);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.post("/jobs/post-publisher/run", requireAuth, async (_req, res) => {
+  try {
+    const result = await runPostPublisherTick();
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 app.post("/jobs/instagram-notify/test", requireAuth, async (req, res) => {
   try {
     const { prisma: db } = await import("./lib/prisma.js");
@@ -809,6 +927,8 @@ console.log("Ads scheduler state:", schedulerState);
 startWeeklyReportScheduler();
 const igSchedulerState = startInstagramScheduler();
 console.log("Instagram scheduler state:", igSchedulerState);
+const publisherState = startPostPublisherScheduler();
+console.log("Post publisher scheduler state:", publisherState);
 
 const server = app.listen(PORT, () => {
   console.log(`Amanda backend running on port ${PORT}`);
@@ -820,6 +940,7 @@ async function shutdown(signal) {
   stopAdsScheduler();
   stopWeeklyReportScheduler();
   stopInstagramScheduler();
+  stopPostPublisherScheduler();
 
   server.close(async () => {
     await prisma.$disconnect();

@@ -3,7 +3,7 @@
     name: amanda-api
     env: node
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: npm install && npx prisma migrate deploy
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
@@ -27,7 +27,9 @@
       - key: INSTAGRAM_NOTIFY_EMAILS
         value: "amandaramalhoadv@gmail.com"
       - key: INSTAGRAM_TOKEN_ISSUED_DATE
-        value: "2026-04-19"
+        value: "2026-04-24"
+      - key: IG_PUBLISH_ENABLED
+        value: false
       - key: SITE_SECRET
         sync: false
       - key: ADMIN_ALERT_EMAILS

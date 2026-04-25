@@ -141,7 +141,54 @@ model ContentSuggestion {
   reasoning String
   status    ContentSuggestionStatus @default(PENDING)
 
+  scheduledPosts ScheduledPost[]
+
   @@map("content_suggestions")
+}
+
+enum ScheduledPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum PublishFormat {
+  PHOTO
+  CAROUSEL
+  REEL
+  STORY
+}
+
+model ScheduledPost {
+  id             String              @id @default(cuid())
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  caption        String
+  mediaUrls      String[]            @map("media_urls")
+  format         PublishFormat
+  firstComment   String?             @map("first_comment")
+
+  scheduledFor   DateTime            @map("scheduled_for")
+  publishedAt    DateTime?           @map("published_at")
+
+  igCreationId   String?             @map("ig_creation_id")
+  igMediaId      String?             @map("ig_media_id")
+  igPermalink    String?             @map("ig_permalink")
+
+  status         ScheduledPostStatus @default(DRAFT)
+  errorMessage   String?             @map("error_message")
+  retryCount     Int                 @default(0) @map("retry_count")
+
+  suggestionId   String?             @map("suggestion_id")
+  suggestion     ContentSuggestion?  @relation(fields: [suggestionId], references: [id])
+
+  @@index([scheduledFor, status])
+  @@index([status])
+  @@map("scheduled_posts")
 }
 
 model WeeklyReport {
