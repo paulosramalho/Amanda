@@ -566,11 +566,13 @@ function brtToUtcIso(date, time) {
   return new Date(Date.UTC(y, m - 1, d, hh + 3, mm, 0)).toISOString();
 }
 
-function SchedulePostModal({ suggestion, existing, onClose, onSubmit, onCancel }) {
+function SchedulePostModal({ suggestion, existing, defaultDate, onClose, onSubmit, onCancel }) {
   const initial = existing || {};
   const def = defaultScheduledLocal();
-  const initialDate = initial.scheduledFor ? new Date(initial.scheduledFor).toLocaleDateString("sv-SE", { timeZone: "America/Belem" }) : def.date;
-  const initialTime = initial.scheduledFor
+  const startDate = initial.scheduledFor
+    ? new Date(initial.scheduledFor).toLocaleDateString("sv-SE", { timeZone: "America/Belem" })
+    : (defaultDate || def.date);
+  const startTime = initial.scheduledFor
     ? new Date(initial.scheduledFor).toLocaleTimeString("pt-BR", { timeZone: "America/Belem", hour12: false }).slice(0, 5)
     : def.time;
   const initialFormat = initial.format || (suggestion ? SUGGESTION_TO_PUBLISH[suggestion.format] : "PHOTO");
@@ -578,8 +580,8 @@ function SchedulePostModal({ suggestion, existing, onClose, onSubmit, onCancel }
   const [format, setFormat] = useState(initialFormat);
   const [caption, setCaption] = useState(initial.caption || (suggestion ? suggestion.theme : ""));
   const [mediaUrls, setMediaUrls] = useState(initial.mediaUrls?.length ? initial.mediaUrls : [""]);
-  const [date, setDate] = useState(initialDate);
-  const [time, setTime] = useState(initialTime);
+  const [date, setDate] = useState(startDate);
+  const [time, setTime] = useState(startTime);
   const [firstComment, setFirstComment] = useState(initial.firstComment || "");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState(null);
@@ -703,12 +705,229 @@ function SchedulePostModal({ suggestion, existing, onClose, onSubmit, onCancel }
   );
 }
 
-function InstagramTab({ posts, suggestions, scheduledBySuggestion, onRunCollection, onRunAnalysis, onSuggestionStatus, onScheduleSubmit, onScheduleCancel, running }) {
+// ── Calendário Editorial ──────────────────────────────────────────────────────
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const FORMAT_ICON = { PHOTO: "📷", CAROUSEL: "🖼️", REEL: "🎬", STORY: "✨" };
+
+function dayKeyBRT(d) {
+  return new Date(d).toLocaleDateString("sv-SE", { timeZone: "America/Belem" });
+}
+
+function timeBRT(d) {
+  return new Date(d).toLocaleTimeString("pt-BR", { timeZone: "America/Belem", hour12: false }).slice(0, 5);
+}
+
+function CalendarPostCard({ post, onClick }) {
+  const color = SCHEDULED_STATUS_COLOR[post.status] || "#64748b";
+  const time = timeBRT(post.publishedAt || post.scheduledFor);
+  const icon = FORMAT_ICON[post.format] || "•";
+  const captionShort = post.caption ? post.caption.replace(/\s+/g, " ").slice(0, 40) : "(sem legenda)";
+  return (
+    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }}
+      style={{
+        display: "block", width: "100%", textAlign: "left", marginBottom: 4,
+        background: color + "18", borderLeft: `3px solid ${color}`,
+        padding: "3px 6px", borderRadius: "0 3px 3px 0", border: "none",
+        cursor: "pointer", fontSize: 10, color: "#1e293b", lineHeight: 1.3,
+      }}
+      title={`${SCHEDULED_STATUS_LABEL[post.status]} · ${time}\n${post.caption || "(sem legenda)"}${post.errorMessage ? "\n\n⚠ " + post.errorMessage : ""}`}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
+        <span style={{ color, fontWeight: 700, fontSize: 9 }}>{time}</span>
+        <span style={{ fontSize: 10 }}>{icon}</span>
+      </div>
+      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{captionShort}</div>
+    </button>
+  );
+}
+
+function CalendarioEditorial({ scheduledPosts, onScheduleSubmit, onScheduleCancel, suggestions }) {
+  const today = new Date();
+  const [refDate, setRefDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [editModal, setEditModal] = useState(null);   // { existing, suggestion } or { defaultDate }
+  const [dayPickerDate, setDayPickerDate] = useState(null);
+
+  const year = refDate.getFullYear();
+  const month = refDate.getMonth();
+  const todayKey = dayKeyBRT(today);
+
+  // Build 6×7 grid
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = firstDay.getDay();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) {
+    cells.push({ date: new Date(year, month, i - startWeekday + 1), inMonth: false });
+  }
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let i = 1; i <= daysInMonth; i++) {
+    cells.push({ date: new Date(year, month, i), inMonth: true });
+  }
+  while (cells.length < 42) {
+    const last = cells[cells.length - 1].date;
+    cells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1), inMonth: false });
+  }
+
+  // Group posts by day key (BRT)
+  const filtered = statusFilter === "ALL" ? scheduledPosts : scheduledPosts.filter((p) => p.status === statusFilter);
+  const postsByDay = {};
+  for (const p of filtered) {
+    const key = dayKeyBRT(p.publishedAt || p.scheduledFor);
+    if (!postsByDay[key]) postsByDay[key] = [];
+    postsByDay[key].push(p);
+  }
+  for (const key of Object.keys(postsByDay)) {
+    postsByDay[key].sort((a, b) =>
+      new Date(a.publishedAt || a.scheduledFor) - new Date(b.publishedAt || b.scheduledFor),
+    );
+  }
+
+  // Counts for header
+  const counts = scheduledPosts.reduce((acc, p) => { acc[p.status] = (acc[p.status] || 0) + 1; return acc; }, {});
+  counts.ALL = scheduledPosts.length;
+
+  function navigate(delta) {
+    setRefDate(new Date(year, month + delta, 1));
+  }
+
+  const suggestionById = {};
+  for (const s of suggestions || []) suggestionById[s.id] = s;
+
+  function openEdit(post) {
+    const sug = post.suggestionId ? suggestionById[post.suggestionId] : null;
+    setEditModal({ existing: post, suggestion: sug });
+  }
+
+  function openNewForDay(dateObj) {
+    if (dateObj.getTime() < new Date(todayKey + "T00:00:00").getTime()) return; // ignora dias passados
+    setDayPickerDate(dayKeyBRT(dateObj));
+  }
+
+  return (
+    <div style={{ padding: "0 4px" }}>
+      {/* Cabeçalho com navegação */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button type="button" className="btn-secondary" onClick={() => navigate(-1)} style={{ padding: "6px 12px" }}>◀</button>
+          <h3 style={{ margin: 0, minWidth: 200, textAlign: "center", fontSize: 18, color: "#1e293b" }}>
+            {MONTHS_PT[month]} {year}
+          </h3>
+          <button type="button" className="btn-secondary" onClick={() => navigate(1)} style={{ padding: "6px 12px" }}>▶</button>
+          <button type="button" className="btn-secondary" onClick={() => setRefDate(new Date(today.getFullYear(), today.getMonth(), 1))}
+            style={{ padding: "6px 12px", marginLeft: 8 }}>Hoje</button>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {[
+            ["ALL", "Todos"],
+            ["SCHEDULED", "Agendado"],
+            ["PUBLISHING", "Publicando"],
+            ["PUBLISHED", "Publicado"],
+            ["FAILED", "Falhou"],
+            ["CANCELLED", "Cancelado"],
+            ["DRAFT", "Rascunho"],
+          ].map(([key, label]) => {
+            const count = counts[key] ?? 0;
+            const active = statusFilter === key;
+            const color = key === "ALL" ? "#64748b" : SCHEDULED_STATUS_COLOR[key];
+            return (
+              <button key={key} type="button" onClick={() => setStatusFilter(key)}
+                style={{
+                  background: active ? color + "22" : "#f1f5f9",
+                  color: active ? color : "#64748b",
+                  border: `1px solid ${active ? color + "55" : "transparent"}`,
+                  borderRadius: 14, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                }}>
+                {label} {count > 0 && <span style={{ opacity: 0.7 }}>· {count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grade do calendário */}
+      <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", background: "#f8fafc" }}>
+          {WEEKDAYS.map((wd) => (
+            <div key={wd} style={{ padding: "8px 10px", fontSize: 11, fontWeight: 600, color: "#64748b", textAlign: "center", borderBottom: "1px solid #e2e8f0" }}>
+              {wd}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+          {cells.map((cell, i) => {
+            const key = dayKeyBRT(cell.date);
+            const dayPosts = postsByDay[key] || [];
+            const isToday = key === todayKey;
+            const isPast = cell.date.getTime() < new Date(todayKey + "T00:00:00").getTime();
+            return (
+              <div key={i} onClick={() => openNewForDay(cell.date)}
+                style={{
+                  minHeight: 96, padding: 5, borderRight: ((i % 7) !== 6) ? "1px solid #f1f5f9" : "none",
+                  borderBottom: i < 35 ? "1px solid #f1f5f9" : "none",
+                  background: !cell.inMonth ? "#fafbfc" : (isToday ? "#eff6ff" : "white"),
+                  opacity: cell.inMonth ? 1 : 0.5,
+                  cursor: isPast || !cell.inMonth ? "default" : "pointer",
+                  position: "relative",
+                }}
+                title={isPast || !cell.inMonth ? "" : "Clique para agendar neste dia"}>
+                <div style={{ fontSize: 11, fontWeight: isToday ? 700 : 500, color: isToday ? "#2563eb" : (cell.inMonth ? "#475569" : "#94a3b8"), marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{cell.date.getDate()}</span>
+                  {dayPosts.length > 3 && <span style={{ fontSize: 9, color: "#94a3b8" }}>+{dayPosts.length - 3}</span>}
+                </div>
+                {dayPosts.slice(0, 3).map((p) => (
+                  <CalendarPostCard key={p.id} post={p} onClick={() => openEdit(p)} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legenda */}
+      <div style={{ marginTop: 12, fontSize: 11, color: "#64748b", display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+        <span>Legenda:</span>
+        {Object.entries(SCHEDULED_STATUS_LABEL).map(([k, l]) => (
+          <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 10, height: 10, background: SCHEDULED_STATUS_COLOR[k], borderRadius: 2 }} />
+            {l}
+          </span>
+        ))}
+        <span style={{ marginLeft: "auto" }}>Clique em uma data futura vazia para agendar · Clique num card para editar</span>
+      </div>
+
+      {editModal && (
+        <SchedulePostModal
+          suggestion={editModal.suggestion}
+          existing={editModal.existing}
+          onClose={() => setEditModal(null)}
+          onSubmit={(data) => onScheduleSubmit(data, editModal.existing?.id)}
+          onCancel={onScheduleCancel}
+        />
+      )}
+
+      {dayPickerDate && (
+        <SchedulePostModal
+          suggestion={null}
+          existing={null}
+          defaultDate={dayPickerDate}
+          onClose={() => setDayPickerDate(null)}
+          onSubmit={(data) => onScheduleSubmit(data, null)}
+          onCancel={onScheduleCancel}
+        />
+      )}
+    </div>
+  );
+}
+
+function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestion, onRunCollection, onRunAnalysis, onSuggestionStatus, onScheduleSubmit, onScheduleCancel, running }) {
   const [subTab, setSubTab] = useState("content");
   const [filterAction, setFilterAction] = useState("ALL");
   const [scheduleModal, setScheduleModal] = useState(null); // { suggestion, existing }
   const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
   const pendingCount = suggestions.filter((s) => s.status === "PENDING").length;
+  const scheduledActiveCount = scheduledPosts.filter((p) => ["SCHEDULED", "PUBLISHING", "DRAFT"].includes(p.status)).length;
 
   return (
     <div className="leads-tab" style={{ height: "calc(100vh - 104px)", display: "flex", flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" }}>
@@ -719,6 +938,9 @@ function InstagramTab({ posts, suggestions, scheduledBySuggestion, onRunCollecti
           </button>
           <button className={`period-tab${subTab === "suggestions" ? " active" : ""}`} onClick={() => setSubTab("suggestions")} type="button">
             Sugestão de Conteúdo {pendingCount > 0 ? `(${pendingCount})` : ""}
+          </button>
+          <button className={`period-tab${subTab === "calendar" ? " active" : ""}`} onClick={() => setSubTab("calendar")} type="button">
+            Calendário {scheduledActiveCount > 0 ? `(${scheduledActiveCount})` : ""}
           </button>
         </div>
         {subTab === "content" && (
@@ -844,6 +1066,15 @@ function InstagramTab({ posts, suggestions, scheduledBySuggestion, onRunCollecti
             </table>
           </div>
         )
+      )}
+
+      {subTab === "calendar" && (
+        <CalendarioEditorial
+          scheduledPosts={scheduledPosts}
+          suggestions={suggestions}
+          onScheduleSubmit={onScheduleSubmit}
+          onScheduleCancel={onScheduleCancel}
+        />
       )}
       </div>
       {scheduleModal && (
@@ -1368,6 +1599,7 @@ export default function App() {
           <InstagramTab
             posts={igPosts}
             suggestions={igSuggestions}
+            scheduledPosts={scheduledPosts}
             scheduledBySuggestion={scheduledBySuggestion}
             onRunCollection={handleIgCollection}
             onRunAnalysis={handleIgAnalysis}
