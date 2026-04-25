@@ -870,6 +870,7 @@ const AGENT_JOB_ENDPOINTS = {
   content_suggestions: "/jobs/content-suggestions/run",
   trending_suggestions: "/jobs/trending-suggestions/run",
   ads_collection: "/jobs/ads-collection/run",
+  post_publisher: "/jobs/post-publisher/run",
 };
 
 function AgentsTab({ agents, onRun, running }) {

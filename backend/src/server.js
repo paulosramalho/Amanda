@@ -864,7 +864,7 @@ app.post("/api/scheduled-posts/:id/publish-now", requireAuth, async (req, res) =
 
 app.post("/jobs/post-publisher/run", requireAuth, async (_req, res) => {
   try {
-    const result = await runPostPublisherTick();
+    const result = await runPostPublisherTick({ triggeredBy: "http" });
     res.json({ ok: true, ...result });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });

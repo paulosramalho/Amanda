@@ -174,24 +174,62 @@ async function publishOne(post) {
   }
 }
 
-export async function runPostPublisherTick({ now = new Date() } = {}) {
-  if (!toBoolean(process.env.IG_PUBLISH_ENABLED, false)) {
-    return { skipped: true, reason: "IG_PUBLISH_ENABLED is false" };
-  }
+export async function runPostPublisherTick({ now = new Date(), triggeredBy = "scheduler" } = {}) {
   if (state.busy) return { skipped: true, reason: "already running" };
   state.busy = true;
 
+  const job = await prisma.jobExecution.create({
+    data: { jobName: "post_publisher", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
+  });
+
   try {
+    if (!toBoolean(process.env.IG_PUBLISH_ENABLED, false)) {
+      const result = { skipped: true, reason: "IG_PUBLISH_ENABLED is false" };
+      await prisma.jobExecution.update({
+        where: { id: job.id },
+        data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, ...result } },
+      });
+      return result;
+    }
+
     const due = await prisma.scheduledPost.findMany({
       where: { status: "SCHEDULED", scheduledFor: { lte: now } },
       orderBy: { scheduledFor: "asc" },
       take: 10,
     });
-    if (!due.length) return { processed: 0 };
+
+    if (!due.length) {
+      const result = { processed: 0, dueCount: 0 };
+      await prisma.jobExecution.update({
+        where: { id: job.id },
+        data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, ...result } },
+      });
+      return result;
+    }
 
     const results = [];
     for (const post of due) results.push(await publishOne(post));
-    return { processed: results.length, results };
+    const success = results.filter((r) => r.ok).length;
+    const failed = results.length - success;
+    const result = { processed: results.length, success, failed };
+
+    await prisma.jobExecution.update({
+      where: { id: job.id },
+      data: {
+        status: failed > 0 ? "FAILED" : "SUCCESS",
+        finishedAt: new Date(),
+        details: { trigger: triggeredBy, ...result, results },
+        errorMessage: failed > 0 ? `${failed} de ${results.length} falharam` : null,
+      },
+    });
+
+    return result;
+  } catch (e) {
+    await prisma.jobExecution.update({
+      where: { id: job.id },
+      data: { status: "FAILED", finishedAt: new Date(), errorMessage: e.message?.slice(0, 500) || "unknown error" },
+    });
+    throw e;
   } finally {
     state.busy = false;
   }
