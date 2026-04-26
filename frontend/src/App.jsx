@@ -751,48 +751,51 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box modal-wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, padding: 24 }}>
-        <h3 style={{ marginBottom: 4 }}>{existing ? "Editar agendamento" : recycleFrom ? "🔄 Re-agendar post" : "Agendar publicação Instagram"}</h3>
-        {suggestion && <p style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>Sugestão: <strong>{suggestion.theme}</strong></p>}
-        {recycleFrom && (
-          <p style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>
-            Reciclando: <a href={recycleFrom.permalink} target="_blank" rel="noreferrer" style={{ color: "#2563eb" }}>{(recycleFrom.caption || "(sem legenda)").slice(0, 60)}{recycleFrom.caption?.length > 60 ? "…" : ""}</a>
-            <br/><span style={{ fontSize: 11, color: "#d97706" }}>⚠ A URL da mídia precisa ser nova (publica) — Instagram não baixa de outras URLs do próprio Instagram.</span>
-          </p>
-        )}
-        {showLibrary && (
-          <div style={{ marginBottom: 16, padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <strong style={{ fontSize: 13, color: "#1e293b" }}>📚 Biblioteca de mídia</strong>
-              <button type="button" onClick={() => setShowLibrary(false)} className="btn-secondary" style={{ padding: "3px 10px", fontSize: 11 }}>Fechar</button>
-            </div>
-            {loadingLibrary ? (
-              <div style={{ fontSize: 12, color: "#64748b", textAlign: "center", padding: 20 }}>Carregando…</div>
-            ) : libraryItems.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 20 }}>
-                Nenhuma mídia ainda. Use o botão 📤 ao lado de cada URL para enviar arquivos — eles aparecerão aqui depois.
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 8, maxHeight: 280, overflowY: "auto" }}>
-                {libraryItems.map((it) => {
-                  const isVideo = it.url.match(/\.(mp4|mov|webm)$/i);
-                  return (
-                    <button key={it.key} type="button" onClick={() => pickFromLibrary(it)}
-                      style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: 0, background: "white", cursor: "pointer", overflow: "hidden", aspectRatio: "1/1" }}
-                      title={`${it.key.split("/").pop()} · ${(it.size / 1024).toFixed(0)}KB · ${new Date(it.lastModified).toLocaleDateString("pt-BR")}`}>
-                      {isVideo ? (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", background: "#1e293b", color: "white", fontSize: 24 }}>🎬</div>
-                      ) : (
-                        <img src={it.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} loading="lazy" />
-                      )}
-                    </button>
-                  );
-                })}
+      <div className="modal-box modal-wide" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560, maxHeight: "calc(100vh - 40px)", padding: 0, display: "flex", flexDirection: "column" }}>
+        <header style={{ padding: "20px 24px 12px", borderBottom: "1px solid #e2e8f0", flexShrink: 0 }}>
+          <h3 style={{ marginBottom: 4 }}>{existing ? "Editar agendamento" : recycleFrom ? "🔄 Re-agendar post" : "Agendar publicação Instagram"}</h3>
+          {suggestion && <p style={{ color: "#64748b", fontSize: 12, margin: 0 }}>Sugestão: <strong>{suggestion.theme}</strong></p>}
+          {recycleFrom && (
+            <p style={{ color: "#64748b", fontSize: 12, margin: 0 }}>
+              Reciclando: <a href={recycleFrom.permalink} target="_blank" rel="noreferrer" style={{ color: "#2563eb" }}>{(recycleFrom.caption || "(sem legenda)").slice(0, 60)}{recycleFrom.caption?.length > 60 ? "…" : ""}</a>
+              <br/><span style={{ fontSize: 11, color: "#d97706" }}>⚠ A URL da mídia precisa ser nova (publica) — Instagram não baixa de outras URLs do próprio Instagram.</span>
+            </p>
+          )}
+        </header>
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px", display: "grid", gap: 12 }}>
+            {showLibrary && (
+              <div style={{ padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <strong style={{ fontSize: 13, color: "#1e293b" }}>📚 Biblioteca de mídia</strong>
+                  <button type="button" onClick={() => setShowLibrary(false)} className="btn-secondary" style={{ padding: "3px 10px", fontSize: 11 }}>Fechar</button>
+                </div>
+                {loadingLibrary ? (
+                  <div style={{ fontSize: 12, color: "#64748b", textAlign: "center", padding: 20 }}>Carregando…</div>
+                ) : libraryItems.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 20 }}>
+                    Nenhuma mídia ainda. Use o botão 📤 ao lado de cada URL para enviar arquivos — eles aparecerão aqui depois.
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+                    {libraryItems.map((it) => {
+                      const isVideo = it.url.match(/\.(mp4|mov|webm)$/i);
+                      return (
+                        <button key={it.key} type="button" onClick={() => pickFromLibrary(it)}
+                          style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: 0, background: "white", cursor: "pointer", overflow: "hidden", aspectRatio: "1/1" }}
+                          title={`${it.key.split("/").pop()} · ${(it.size / 1024).toFixed(0)}KB · ${new Date(it.lastModified).toLocaleDateString("pt-BR")}`}>
+                          {isVideo ? (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", background: "#1e293b", color: "white", fontSize: 24 }}>🎬</div>
+                          ) : (
+                            <img src={it.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} loading="lazy" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-        <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
           <label>
             <span>Formato</span>
             <select value={format} onChange={(e) => setFormat(e.target.value)} className="status-select" style={{ width: "100%" }}>
@@ -903,8 +906,9 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
           </label>
 
           {err && <div style={{ color: "#dc2626", fontSize: 13, padding: "6px 10px", background: "#fee2e2", borderRadius: 4 }}>{err}</div>}
+          </div>
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "space-between", marginTop: 6 }}>
+          <footer style={{ padding: "12px 24px 16px", borderTop: "1px solid #e2e8f0", flexShrink: 0, display: "flex", gap: 8, justifyContent: "space-between", background: "white" }}>
             <div>
               {existing && existing.status !== "PUBLISHED" && existing.status !== "CANCELLED" && (
                 <button type="button" onClick={() => { onCancel(existing.id); onClose(); }} className="btn-secondary" style={{ color: "#dc2626" }}>
@@ -918,7 +922,7 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
                 {submitting ? "Salvando…" : existing ? "Atualizar" : "Agendar"}
               </button>
             </div>
-          </div>
+          </footer>
         </form>
       </div>
     </div>
