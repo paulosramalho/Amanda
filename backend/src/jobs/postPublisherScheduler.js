@@ -82,6 +82,41 @@ async function publishCarousel({ igUserId, token, mediaUrls, caption }) {
   return { creationId: container.id, mediaId: publish.id };
 }
 
+// Story: foto é síncrona, vídeo é assíncrono (mesmo padrão do Reel)
+// Detecta por extensão. Aspect ratio ideal: 9:16. Vídeo: ≤60s, ≤100MB. Foto: ≤8MB.
+async function publishStory({ igUserId, token, mediaUrl, caption }) {
+  const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(mediaUrl);
+  const params = { media_type: "STORIES", caption, access_token: token };
+  if (isVideo) params.video_url = mediaUrl;
+  else params.image_url = mediaUrl;
+
+  const container = await apiCall("POST", `/${igUserId}/media`, params);
+  console.log(`[postPublisher] Story container criado: ${container.id} (${isVideo ? "vídeo" : "foto"})`);
+
+  if (isVideo) {
+    const start = Date.now();
+    const TIMEOUT_MS = 4 * 60 * 1000;
+    const POLL_INTERVAL_MS = 15_000;
+    let status = "IN_PROGRESS";
+    let lastInfo = {};
+    while (status === "IN_PROGRESS") {
+      if (Date.now() - start > TIMEOUT_MS) {
+        throw new Error(`Timeout (4min) processando Story vídeo. creation_id=${container.id}`);
+      }
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+      lastInfo = await apiCall("GET", `/${container.id}`, { fields: "status_code", access_token: token });
+      status = lastInfo.status_code || "IN_PROGRESS";
+      console.log(`[postPublisher] Story ${container.id} status=${status} (após ${Math.round((Date.now() - start) / 1000)}s)`);
+    }
+    if (status === "ERROR") throw new Error(`Story processamento ERROR: ${lastInfo.status_code_description || "sem detalhes"}`);
+    if (status === "EXPIRED") throw new Error("Story container expirou.");
+    if (status !== "FINISHED") throw new Error(`Story status inesperado: ${status}`);
+  }
+
+  const publish = await apiCall("POST", `/${igUserId}/media_publish`, { creation_id: container.id, access_token: token });
+  return { creationId: container.id, mediaId: publish.id };
+}
+
 // Reel: publicação assíncrona — Instagram processa o vídeo, faz poll do status_code
 async function publishReel({ igUserId, token, videoUrl, caption }) {
   const container = await apiCall("POST", `/${igUserId}/media`, {
@@ -138,7 +173,7 @@ async function publishOne(post) {
     if (post.format === "CAROUSEL" && (post.mediaUrls.length < 2 || post.mediaUrls.length > 10)) {
       throw new Error(`Carrossel exige 2-10 imagens (recebeu ${post.mediaUrls.length}).`);
     }
-    if ((post.format === "PHOTO" || post.format === "REEL") && post.mediaUrls.length !== 1) {
+    if (["PHOTO", "REEL", "STORY"].includes(post.format) && post.mediaUrls.length !== 1) {
       throw new Error(`${post.format} exige exatamente 1 URL (recebeu ${post.mediaUrls.length}).`);
     }
 
@@ -151,8 +186,10 @@ async function publishOne(post) {
       result = await publishCarousel({ igUserId, token, mediaUrls: post.mediaUrls, caption: post.caption });
     } else if (post.format === "REEL") {
       result = await publishReel({ igUserId, token, videoUrl: post.mediaUrls[0], caption: post.caption });
+    } else if (post.format === "STORY") {
+      result = await publishStory({ igUserId, token, mediaUrl: post.mediaUrls[0], caption: post.caption });
     } else {
-      throw new Error(`Formato ${post.format} não suportado (Stories ainda em planejamento).`);
+      throw new Error(`Formato ${post.format} não suportado.`);
     }
 
     const permalink = await getPermalink(result.mediaId, token);

@@ -607,7 +607,7 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
   const fileInputs = useRef({});
   const [err, setErr] = useState(null);
 
-  const fase2 = format === "STORY";
+  const fase2 = false;
 
   async function uploadFile(idx, file) {
     if (!file) return;
@@ -726,7 +726,7 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
     if (format === "CAROUSEL" && (cleanUrls.length < 2 || cleanUrls.length > 10)) return setErr("Carrossel exige entre 2 e 10 imagens.");
     if (format === "PHOTO" && cleanUrls.length !== 1) return setErr("Foto exige exatamente uma URL.");
     if (format === "REEL" && cleanUrls.length !== 1) return setErr("Reel exige exatamente uma URL de vídeo (MP4 H.264).");
-    if (fase2) return setErr("Stories ficam para a Fase 2.");
+    if (format === "STORY" && cleanUrls.length !== 1) return setErr("Stories exige exatamente uma URL (foto ou vídeo).");
 
     const scheduledFor = brtToUtcIso(date, time);
     if (new Date(scheduledFor).getTime() < Date.now() - 60_000) return setErr("Data/hora deve estar no futuro.");
@@ -802,7 +802,7 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
               <option value="PHOTO">Foto</option>
               <option value="CAROUSEL">Carrossel (2-10 imagens)</option>
               <option value="REEL">Reel (vídeo MP4)</option>
-              <option value="STORY" disabled>Stories — Fase 2</option>
+              <option value="STORY">Stories (foto ou vídeo, 24h)</option>
             </select>
           </label>
 
@@ -816,15 +816,17 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
             <span style={{ fontSize: 13, color: "#475569", fontWeight: 500 }}>
               {format === "REEL"
                 ? "URL do vídeo (HTTPS pública, MP4 H.264, ≤1GB, ≤15min)"
-                : "URL(s) da mídia (HTTPS pública, JPEG/PNG, ≤8MB)"}
+                : format === "STORY"
+                  ? "URL da mídia (foto JPEG/PNG ≤8MB ou vídeo MP4 ≤100MB / ≤60s, ratio 9:16)"
+                  : "URL(s) da mídia (HTTPS pública, JPEG/PNG, ≤8MB)"}
             </span>
             {mediaUrls.map((u, i) => (
               <div key={i} style={{ display: "flex", gap: 6, marginTop: 4 }}>
                 <input type="url" value={u} onChange={(e) => setUrl(i, e.target.value)}
-                  placeholder={format === "REEL" ? "https://...video.mp4" : "https://..."}
+                  placeholder={format === "REEL" ? "https://...video.mp4" : format === "STORY" ? "https://...foto-ou-video" : "https://..."}
                   style={{ flex: 1, padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
                 <input type="file" ref={(el) => { fileInputs.current[i] = el; }} style={{ display: "none" }}
-                  accept={format === "REEL" ? "video/mp4,video/quicktime" : "image/jpeg,image/png"}
+                  accept={format === "REEL" ? "video/mp4,video/quicktime" : format === "STORY" ? "image/jpeg,image/png,video/mp4,video/quicktime" : "image/jpeg,image/png"}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(i, f); e.target.value = ""; }} />
                 <button type="button" onClick={() => fileInputs.current[i]?.click()}
                   disabled={uploadingIdx === i} className="btn-secondary"
@@ -851,6 +853,11 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
             {format === "REEL" && (
               <div style={{ marginTop: 6, fontSize: 11, color: "#d97706", padding: "6px 10px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 4 }}>
                 ⏳ Reel é assíncrono — após o tick chamar a API, o Instagram processa o vídeo (até ~4min de polling). Status fica "Publicando" durante esse tempo.
+              </div>
+            )}
+            {format === "STORY" && (
+              <div style={{ marginTop: 6, fontSize: 11, color: "#7c3aed", padding: "6px 10px", background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: 4 }}>
+                ✨ Stories ficam visíveis por 24h. Aspect ratio ideal: 9:16 (vertical). Vídeo segue o mesmo polling assíncrono do Reel.
               </div>
             )}
           </div>
