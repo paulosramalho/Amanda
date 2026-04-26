@@ -1643,18 +1643,19 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
+      const safe = (p) => p.then((r) => r.json()).catch(() => ({ ok: false }));
       const [s, dy, c, wr, goal, igData, leadsData, csData, agentsData, spData, bsData] = await Promise.all([
-        apiFetch(`/dashboard/summary?days=${d}`).then((r) => r.json()),
-        apiFetch(`/dashboard/daily?days=${d}`).then((r) => r.json()),
-        apiFetch(`/dashboard/campaigns?days=${d}`).then((r) => r.json()),
-        apiFetch(`/dashboard/weekly-reports`).then((r) => r.json()),
-        apiFetch(`/dashboard/monthly-goal?month=${month}`).then((r) => r.json()),
-        apiFetch(`/dashboard/instagram-posts`).then((r) => r.json()),
-        apiFetch(`/leads`).then((r) => r.json()),
-        apiFetch(`/dashboard/content-suggestions`).then((r) => r.json()),
-        apiFetch(`/dashboard/agents`).then((r) => r.json()),
-        apiFetch(`/api/scheduled-posts`).then((r) => r.json()).catch(() => ({ ok: false })),
-        apiFetch(`/dashboard/boost-suggestions`).then((r) => r.json()).catch(() => ({ ok: false })),
+        safe(apiFetch(`/dashboard/summary?days=${d}`)),
+        safe(apiFetch(`/dashboard/daily?days=${d}`)),
+        safe(apiFetch(`/dashboard/campaigns?days=${d}`)),
+        safe(apiFetch(`/dashboard/weekly-reports`)),
+        safe(apiFetch(`/dashboard/monthly-goal?month=${month}`)),
+        safe(apiFetch(`/dashboard/instagram-posts`)),
+        safe(apiFetch(`/leads`)),
+        safe(apiFetch(`/dashboard/content-suggestions`)),
+        safe(apiFetch(`/dashboard/agents`)),
+        safe(apiFetch(`/api/scheduled-posts`)),
+        safe(apiFetch(`/dashboard/boost-suggestions`)),
       ]);
       if (s.ok) setSummary(s);
       if (dy.ok) setSeries(dy.series || []);
