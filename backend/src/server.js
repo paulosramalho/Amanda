@@ -753,7 +753,7 @@ const AGENT_REGISTRY = [
   { jobName: "instagram_collection",  label: "Coletor de Posts",        description: "Coleta posts e métricas do @amandamramalho via Instagram Graph API." },
   { jobName: "post_analysis",         label: "Analisador de Posts",      description: "Avalia qualidade de cada post com Claude e recomenda ação (Investir, Redirecionar, Remover…)." },
   { jobName: "content_suggestions",   label: "Sugestor de Conteúdo",     description: "Analisa o histórico do perfil e sugere novos temas e formatos de post." },
-  { jobName: "trending_suggestions",  label: "Agente de Tendências",     description: "Varre Conjur, JOTA, Migalhas, YouTube BR e Google Trends BR em busca de pautas em alta e sugere posts." },
+  { jobName: "trending_suggestions",  label: "Agente de Tendências",     description: "Varre 7 fontes — Conjur, JOTA, Migalhas, YouTube BR, Google Trends BR, Reddit BR (r/conselhojuridico + r/direito) e Instituições BR (STJ + Câmara + Senado) — em busca de pautas em alta e sugere 7 posts." },
   { jobName: "ads_collection",        label: "Coletor de Anúncios",      description: "Coleta métricas diárias de campanhas no Google Ads e Meta Ads." },
   { jobName: "instagram_notify",      label: "Notificador",              description: "Envia e-mail diário com posts INVEST/REMOVE e alerta de renovação do token." },
   { jobName: "post_publisher",        label: "Publicador de Posts",      description: "Publica posts agendados no Instagram (foto + carrossel) — tick a cada 5min. Gate: IG_PUBLISH_ENABLED." },
