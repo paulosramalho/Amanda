@@ -154,6 +154,14 @@ Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
 | **Suporte a Reel** — `publishReel` com polling do `status_code` (FINISHED/ERROR/EXPIRED), timeout 4min | ✅ commit `09e7d0f` |
 | **Suporte a Stories** — `publishStory` (foto síncrona ou vídeo com polling), 24h, ratio 9:16 | ✅ commit `50fb3c1` (extra além do plano Fase 2) |
 
+### Melhorias gerais (fora do plano original)
+| Mudança | Status | Commit |
+|---------|--------|--------|
+| Indicadores de qualidade nos KPIs (badge ↑/→/↓ com delta% vs período anterior; CTR usa benchmark fixo) | ✅ | `524ba60` (26/04/2026) |
+| Fix do alerta "Última coleta há Xh" perpétuo (jobName mismatch ads_collection_daily → ads_collection) | ✅ | `524ba60` |
+| Stories habilitado no modal (foto síncrona + vídeo assíncrono) | ✅ | `50fb3c1` |
+| Modais com header/footer fixos e centro rolável (regra global em memória) | ✅ | `954f6c6` |
+
 ### Estado atual (recuperação de contexto)
 Fases 1, 2 e 3 ✅ código implementado. **Próximo passo:** aguardando Paulo configurar Cloudflare R2 (criar bucket + API token + adicionar 5 env vars no Render). Depois disso, Fase 3 estará operacional. Em seguida: Fase 4 (multi-cliente Addere — não iniciada).
 
