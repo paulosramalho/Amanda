@@ -89,16 +89,39 @@ const QUALITY_LABEL = { good: "bom", neutral: "neutro", bad: "atenção" };
 function QualityBadge({ q }) {
   if (!q || !q.rating) return null;
   const dPct = q.deltaPct;
-  const arrow = dPct == null ? "·" : dPct > 0.001 ? "↑" : dPct < -0.001 ? "↓" : "→";
-  const dPctTxt = dPct == null ? "" : `${dPct > 0 ? "+" : ""}${(dPct * 100).toFixed(0)}%`;
+
+  let trendIcon, trendLabel, trendColor, trendBg;
+  if (dPct == null) {
+    trendIcon = "—"; trendLabel = "sem comparação";
+    trendColor = "#64748b"; trendBg = "#f1f5f9";
+  } else if (dPct > 0.005) {
+    trendIcon = "▲"; trendLabel = `+${(dPct * 100).toFixed(0)}%`;
+    trendColor = "#0369a1"; trendBg = "#e0f2fe";
+  } else if (dPct < -0.005) {
+    trendIcon = "▼"; trendLabel = `${(dPct * 100).toFixed(0)}%`;
+    trendColor = "#9333ea"; trendBg = "#f3e8ff";
+  } else {
+    trendIcon = "▬"; trendLabel = "estável";
+    trendColor = "#64748b"; trendBg = "#f1f5f9";
+  }
+
+  const dPctTxtFull = dPct == null ? "sem dados anteriores" : `${dPct > 0 ? "+" : ""}${(dPct * 100).toFixed(1)}% vs período anterior`;
+
+  const chip = {
+    display: "inline-flex", alignItems: "center", gap: 3,
+    fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10,
+  };
+
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 3,
-      background: QUALITY_BG[q.rating], color: QUALITY_COLOR[q.rating],
-      fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, marginTop: 4,
-    }} title={`${QUALITY_LABEL[q.rating]} · vs período anterior: ${dPctTxt || "n/d"}`}>
-      {arrow} {dPctTxt || QUALITY_LABEL[q.rating]}
-    </span>
+    <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+      <span style={{ ...chip, background: QUALITY_BG[q.rating], color: QUALITY_COLOR[q.rating] }}
+            title={QUALITY_LABEL[q.rating]}>
+        {QUALITY_LABEL[q.rating]}
+      </span>
+      <span style={{ ...chip, background: trendBg, color: trendColor }} title={dPctTxtFull}>
+        <span style={{ fontSize: 9, lineHeight: 1 }}>{trendIcon}</span> {trendLabel}
+      </span>
+    </div>
   );
 }
 
