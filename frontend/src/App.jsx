@@ -77,7 +77,14 @@ function fmtDatetime(iso) {
 }
 
 function currentMonth() {
-  return new Date().toLocaleString("en-US", { timeZone: "America/Belem" }).slice(0, 7).replace("/", "-");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Belem",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year").value;
+  const m = parts.find((p) => p.type === "month").value;
+  return `${y}-${m}`;
 }
 
 // ── Small components ─────────────────────────────────────────────────────────
