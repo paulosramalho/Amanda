@@ -83,7 +83,7 @@ Todos os agentes rodam automaticamente às 01h BRT via scheduler interno (`insta
 | Coletor de Posts | `instagram_collection` | Coleta posts e métricas do @amandamramalho via Instagram Graph API |
 | Analisador de Posts | `post_analysis` | Avalia qualidade com Claude Haiku — ação (INVEST/REDIRECT/REMOVE/MONITOR/MAINTAIN), score 1-10, justificativa e sugestão |
 | Sugestor de Conteúdo | `content_suggestions` | Analisa histórico do perfil e sugere 7 novos temas/formatos |
-| Agente de Tendências | `trending_suggestions` | Varre RSS de Conjur, JOTA e Migalhas — sugere 6 posts sobre pautas em alta |
+| Agente de Tendências | `trending_suggestions` | Varre 7 fontes (Conjur, JOTA, Migalhas, YouTube BR, Google Trends BR, Reddit BR, Instituições BR — STJ/Câmara/Senado) — sugere 7 posts sobre pautas em alta |
 | Notificador | `instagram_notify` | Envia e-mail com posts INVEST/REMOVE e alerta de renovação de token |
 | Coletor de Anúncios | `ads_collection` | Coleta métricas diárias de Google Ads e Meta Ads (15h UTC) |
 

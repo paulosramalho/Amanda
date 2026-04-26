@@ -24,7 +24,7 @@ Ciclo diário automático na seguinte ordem:
 1. **Coleta de Posts** — busca posts e métricas do @amandamramalho via Graph API
 2. **Análise de Posts** — Claude Haiku avalia cada post sem análise (ação, score, justificativa, sugestão)
 3. **Sugestões de Conteúdo** — analisa histórico do perfil e gera 7 sugestões de novos posts
-4. **Agente de Tendências** — varre RSS de Conjur, JOTA e Migalhas e gera 6 sugestões de pautas em alta
+4. **Agente de Tendências** — varre 7 fontes em paralelo (Conjur, JOTA, Migalhas, YouTube BR, Google Trends BR, Reddit BR, Instituições BR — STJ+Câmara+Senado) e gera 7 sugestões de pautas em alta
 5. **Notificador** — envia e-mail com posts INVEST/REMOVE e alerta de renovação de token
 
 ### Relatório Semanal
@@ -161,6 +161,10 @@ Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
 | Fix do alerta "Última coleta há Xh" perpétuo (jobName mismatch ads_collection_daily → ads_collection) | ✅ | `524ba60` |
 | Stories habilitado no modal (foto síncrona + vídeo assíncrono) | ✅ | `50fb3c1` |
 | Modais com header/footer fixos e centro rolável (regra global em memória) | ✅ | `954f6c6` |
+| KPIs — chip de **tendência** (▲ subiu / ▬ estável / ▼ baixou) separado do chip de **qualidade** (bom/neutro/atenção) | ✅ | `9db3799` (26/04/2026) |
+| Backend — comparação de tendência passa a ser snapshot de hoje vs snapshot de ontem (janela rolante deslocada 1 dia) em vez de período N vs período N-1; resolve "sem comparação" quando há <2× `days` de dados coletados | ✅ | `aca20b2` (26/04/2026) |
+| Agente de Tendências — adicionada 6ª fonte: **Reddit BR** (`r/conselhojuridico` + `r/direito`, top da semana, sem auth) — captura linguagem e dor real do cliente potencial | ✅ | `7d1fea7` (26/04/2026) |
+| Agente de Tendências — adicionada 7ª fonte: **Instituições BR** (STJ + Câmara + Senado via Google News RSS) — pipeline decisório de Brasília; total de sinais por execução subiu de ~82 para ~113 | ✅ | `2da7a4a` (26/04/2026) |
 
 ### Estado atual (recuperação de contexto)
 Fases 1, 2 e 3 ✅ código implementado. **Próximo passo:** aguardando Paulo configurar Cloudflare R2 (criar bucket + API token + adicionar 5 env vars no Render). Depois disso, Fase 3 estará operacional. Em seguida: Fase 4 (multi-cliente Addere — não iniciada).

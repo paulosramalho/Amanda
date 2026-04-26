@@ -154,7 +154,7 @@ Deve retornar `instagram_business_account.id = 17841401371420027`.
 ### Jobs que usam a API
 - `post_analysis`: analisa cada post (ação, score 1-10, justificativa, sugestão acionável)
 - `content_suggestions`: gera 7 sugestões de conteúdo baseadas no histórico do perfil
-- `trending_suggestions`: processa manchetes de RSS e gera 6 sugestões de pautas em alta
+- `trending_suggestions`: consolida 7 fontes (Conjur + JOTA + Migalhas RSS + YouTube BR + Google Trends BR + Reddit BR + Instituições BR — STJ/Câmara/Senado) e gera 7 sugestões de pautas em alta
 
 ---
 
