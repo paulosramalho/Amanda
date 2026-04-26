@@ -55,6 +55,7 @@ src/
     populateSuggestionsJob.js # popular sugestões de conteúdo
     contentSuggestionsJob.js  # sugestões de conteúdo via Claude
     trendingSuggestionsJob.js # AGENTE PRINCIPAL: varre fontes → Claude → ContentSuggestion
+    boostSuggestionsJob.js    # cruza posts orgânicos + análise INVEST + saldo do mês + CPL → sugere quanto investir em boost
     anomalyDetector.js        # detecção de anomalias em métricas
     ads/
       providers/
@@ -80,6 +81,7 @@ src/
 | `ContentSuggestion` | Sugestões de pauta geradas pelos jobs de IA |
 | `WeeklyReport` | Relatórios semanais consolidados |
 | `MonthlyGoal` | Metas mensais definidas pelo usuário |
+| `BoostSuggestion` | Sugestões de impulsionamento (boost) — post + valor sugerido + leads estimados |
 | `JobExecution` | Log de execução de todos os jobs (RUNNING → SUCCESS/FAILED) |
 
 ---

@@ -84,6 +84,7 @@ Todos os agentes rodam automaticamente às 01h BRT via scheduler interno (`insta
 | Analisador de Posts | `post_analysis` | Avalia qualidade com Claude Haiku — ação (INVEST/REDIRECT/REMOVE/MONITOR/MAINTAIN), score 1-10, justificativa e sugestão |
 | Sugestor de Conteúdo | `content_suggestions` | Analisa histórico do perfil e sugere 7 novos temas/formatos |
 | Agente de Tendências | `trending_suggestions` | Varre 7 fontes (Conjur, JOTA, Migalhas, YouTube BR, Google Trends BR, Reddit BR, Instituições BR — STJ/Câmara/Senado) — sugere 7 posts sobre pautas em alta |
+| Sugestor de Impulsionamento | `boost_suggestions` | Cruza posts orgânicos com tração + análise INVEST + saldo do mês + CPL histórico Meta — sugere quanto investir em boost por post (mínimo R$ 30) |
 | Notificador | `instagram_notify` | Envia e-mail com posts INVEST/REMOVE e alerta de renovação de token |
 | Coletor de Anúncios | `ads_collection` | Coleta métricas diárias de Google Ads e Meta Ads (15h UTC) |
 

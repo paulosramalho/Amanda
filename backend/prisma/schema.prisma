@@ -99,7 +99,8 @@ model InstagramPost {
   plays            Int?
   metricsUpdatedAt DateTime? @map("metrics_updated_at")
 
-  analysis PostAnalysis?
+  analysis         PostAnalysis?
+  boostSuggestions BoostSuggestion[]
 
   @@index([publishedAt])
   @@map("instagram_posts")
@@ -144,6 +145,27 @@ model ContentSuggestion {
   scheduledPosts ScheduledPost[]
 
   @@map("content_suggestions")
+}
+
+enum BoostSuggestionStatus {
+  PENDING
+  APPLIED
+  DISMISSED
+}
+
+model BoostSuggestion {
+  id              String                @id @default(cuid())
+  createdAt       DateTime              @default(now()) @map("created_at")
+  postId          String                @map("post_id")
+  post            InstagramPost         @relation(fields: [postId], references: [id])
+  suggestedAmount Int                   @map("suggested_amount")
+  estimatedLeads  Float?                @map("estimated_leads")
+  estimatedCpl    Decimal?              @db.Decimal(12, 2) @map("estimated_cpl")
+  reasoning       String
+  status          BoostSuggestionStatus @default(PENDING)
+
+  @@index([status, createdAt])
+  @@map("boost_suggestions")
 }
 
 enum ScheduledPostStatus {

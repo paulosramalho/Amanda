@@ -23,6 +23,7 @@ import { runPostAnalysisJob } from "./jobs/postAnalysisJob.js";
 import { runPopulateSuggestionsJob } from "./jobs/populateSuggestionsJob.js";
 import { runContentSuggestionsJob } from "./jobs/contentSuggestionsJob.js";
 import { runTrendingSuggestionsJob } from "./jobs/trendingSuggestionsJob.js";
+import { runBoostSuggestionsJob } from "./jobs/boostSuggestionsJob.js";
 import { startInstagramScheduler, stopInstagramScheduler, runInstagramCycle } from "./jobs/instagramScheduler.js";
 import {
   startPostPublisherScheduler,
@@ -749,6 +750,45 @@ app.post("/jobs/trending-suggestions/run", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/jobs/boost-suggestions/run", requireAuth, async (req, res) => {
+  try {
+    const result = await runBoostSuggestionsJob({ triggeredBy: "http" });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/dashboard/boost-suggestions", async (_req, res) => {
+  try {
+    const suggestions = await prisma.boostSuggestion.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      include: {
+        post: {
+          select: { id: true, igPostId: true, mediaType: true, caption: true, permalink: true, thumbnailUrl: true, publishedAt: true, likeCount: true, commentsCount: true, reach: true },
+        },
+      },
+    });
+    res.json({ ok: true, suggestions });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.patch("/boost-suggestions/:id", requireAuth, async (req, res) => {
+  try {
+    const { status } = req.body || {};
+    const updated = await prisma.boostSuggestion.update({
+      where: { id: req.params.id },
+      data: { status },
+    });
+    res.json({ ok: true, suggestion: updated });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
 const AGENT_REGISTRY = [
   { jobName: "instagram_collection",  label: "Coletor de Posts",        description: "Coleta posts e métricas do @amandamramalho via Instagram Graph API." },
   { jobName: "post_analysis",         label: "Analisador de Posts",      description: "Avalia qualidade de cada post com Claude e recomenda ação (Investir, Redirecionar, Remover…)." },
@@ -757,6 +797,7 @@ const AGENT_REGISTRY = [
   { jobName: "ads_collection",        label: "Coletor de Anúncios",      description: "Coleta métricas diárias de campanhas no Google Ads e Meta Ads." },
   { jobName: "instagram_notify",      label: "Notificador",              description: "Envia e-mail diário com posts INVEST/REMOVE e alerta de renovação do token." },
   { jobName: "post_publisher",        label: "Publicador de Posts",      description: "Publica posts agendados no Instagram (foto + carrossel) — tick a cada 5min. Gate: IG_PUBLISH_ENABLED." },
+  { jobName: "boost_suggestions",     label: "Sugestor de Impulsionamento", description: "Cruza posts orgânicos com tração + análise INVEST + saldo do mês + CPL histórico, e sugere quanto investir em boost por post." },
 ];
 
 app.get("/dashboard/agents", async (_req, res) => {

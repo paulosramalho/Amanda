@@ -165,6 +165,7 @@ Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
 | Backend — comparação de tendência passa a ser snapshot de hoje vs snapshot de ontem (janela rolante deslocada 1 dia) em vez de período N vs período N-1; resolve "sem comparação" quando há <2× `days` de dados coletados | ✅ | `aca20b2` (26/04/2026) |
 | Agente de Tendências — adicionada 6ª fonte: **Reddit BR** (`r/conselhojuridico` + `r/direito`, top da semana, sem auth) — captura linguagem e dor real do cliente potencial | ✅ | `7d1fea7` (26/04/2026) |
 | Agente de Tendências — adicionada 7ª fonte: **Instituições BR** (STJ + Câmara + Senado via Google News RSS) — pipeline decisório de Brasília; total de sinais por execução subiu de ~82 para ~113 | ✅ | `2da7a4a` (26/04/2026) |
+| Novo agente **Sugestor de Impulsionamento** (`boost_suggestions`) — cruza posts orgânicos com tração + análise INVEST + saldo do mês (`MonthlyGoal`) + CPL histórico Meta, e sugere quanto investir em boost por post (mínimo R$ 30, teto 25% do saldo). Nova tabela `BoostSuggestion`, sub-aba "Impulsionar" em Conteúdo, status PENDING/APPLIED/DISMISSED. Aplicação manual (Amanda abre o post no IG e impulsiona com o valor sugerido) — execução automática fica para fase futura. | ✅ | (sessão 26/04/2026) |
 
 ### Estado atual (recuperação de contexto)
 Fases 1, 2 e 3 ✅ código implementado. **Próximo passo:** aguardando Paulo configurar Cloudflare R2 (criar bucket + API token + adicionar 5 env vars no Render). Depois disso, Fase 3 estará operacional. Em seguida: Fase 4 (multi-cliente Addere — não iniciada).

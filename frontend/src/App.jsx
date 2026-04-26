@@ -1193,13 +1193,84 @@ function CalendarioEditorial({ scheduledPosts, onScheduleSubmit, onScheduleCance
   );
 }
 
-function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestion, onRunCollection, onRunAnalysis, onSuggestionStatus, onScheduleSubmit, onScheduleCancel, running }) {
+const BOOST_STATUS_COLOR = { PENDING: "#d97706", APPLIED: "#059669", DISMISSED: "#94a3b8" };
+const BOOST_STATUS_LABEL = { PENDING: "Pendente", APPLIED: "Aplicado", DISMISSED: "Ignorado" };
+
+function BoostSuggestionsList({ suggestions, onStatus }) {
+  if (!suggestions || suggestions.length === 0) {
+    return <div className="empty-chart">Nenhuma sugestão de impulsionamento ainda. Execute o agente "Sugestor de Impulsionamento" na aba Agentes.</div>;
+  }
+  const totalPending = suggestions
+    .filter((s) => s.status === "PENDING")
+    .reduce((sum, s) => sum + (s.suggestedAmount || 0), 0);
+
+  return (
+    <div className="table-wrap">
+      <div style={{ marginBottom: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#475569" }}>
+        <strong>Total sugerido (pendentes): {brl(totalPending / 100)}</strong> em {suggestions.filter((s) => s.status === "PENDING").length} post(s).
+        Aplicação manual: abra o post no Instagram pelo botão "Abrir post", toque em <em>Impulsionar publicação</em>, e use o valor sugerido.
+      </div>
+      <table className="camp-table">
+        <thead>
+          <tr>
+            <th>Post</th>
+            <th>Tipo</th>
+            <th className="num">Engajamento</th>
+            <th className="num">Valor sugerido</th>
+            <th className="num">Leads est.</th>
+            <th>Justificativa</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {suggestions.map((s) => {
+            const p = s.post || {};
+            const eng = `${(p.likeCount ?? 0).toLocaleString("pt-BR")} 👍 · ${(p.commentsCount ?? 0).toLocaleString("pt-BR")} 💬${p.reach != null ? ` · ${p.reach.toLocaleString("pt-BR")} 👁` : ""}`;
+            return (
+              <tr key={s.id} style={{ opacity: s.status === "DISMISSED" ? 0.45 : 1 }}>
+                <td className="camp-name">
+                  {p.permalink
+                    ? <a href={p.permalink} target="_blank" rel="noreferrer" className="ig-link">{p.caption ? p.caption.slice(0, 60) + (p.caption.length > 60 ? "…" : "") : "(sem legenda)"}</a>
+                    : <span>{p.caption ? p.caption.slice(0, 60) : "(sem legenda)"}</span>
+                  }
+                </td>
+                <td>{p.mediaType ? <MediaTypeBadge type={p.mediaType} /> : "—"}</td>
+                <td className="num" style={{ fontSize: 12, color: "#475569" }}>{eng}</td>
+                <td className="num" style={{ fontWeight: 700, color: "#0369a1" }}>{brl(s.suggestedAmount / 100)}</td>
+                <td className="num">{s.estimatedLeads != null ? s.estimatedLeads.toFixed(1) : "—"}</td>
+                <td className="ig-reasoning">{s.reasoning}</td>
+                <td>
+                  <select className="status-select" value={s.status}
+                    style={{ color: BOOST_STATUS_COLOR[s.status] }}
+                    onChange={(e) => onStatus(s.id, e.target.value)}>
+                    {Object.entries(BOOST_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </td>
+                <td>
+                  {p.permalink && (
+                    <a href={p.permalink} target="_blank" rel="noreferrer" className="btn-secondary" style={{ padding: "4px 10px", fontSize: 12, textDecoration: "none" }}>
+                      Abrir post
+                    </a>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestion, onRunCollection, onRunAnalysis, onSuggestionStatus, onScheduleSubmit, onScheduleCancel, running, boostSuggestions = [], onBoostStatus }) {
   const [subTab, setSubTab] = useState("content");
   const [filterAction, setFilterAction] = useState("ALL");
   const [scheduleModal, setScheduleModal] = useState(null); // { suggestion, existing }
   const filtered = filterAction === "ALL" ? posts : posts.filter((p) => p.analysis?.action === filterAction);
   const pendingCount = suggestions.filter((s) => s.status === "PENDING").length;
   const scheduledActiveCount = scheduledPosts.filter((p) => ["SCHEDULED", "PUBLISHING", "DRAFT"].includes(p.status)).length;
+  const pendingBoostCount = boostSuggestions.filter((s) => s.status === "PENDING").length;
 
   return (
     <div className="leads-tab" style={{ height: "calc(100vh - 104px)", display: "flex", flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" }}>
@@ -1213,6 +1284,9 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
           </button>
           <button className={`period-tab${subTab === "calendar" ? " active" : ""}`} onClick={() => setSubTab("calendar")} type="button">
             Calendário {scheduledActiveCount > 0 ? `(${scheduledActiveCount})` : ""}
+          </button>
+          <button className={`period-tab${subTab === "boost" ? " active" : ""}`} onClick={() => setSubTab("boost")} type="button">
+            Impulsionar {pendingBoostCount > 0 ? `(${pendingBoostCount})` : ""}
           </button>
         </div>
         {subTab === "content" && (
@@ -1363,6 +1437,10 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
           onScheduleCancel={onScheduleCancel}
         />
       )}
+
+      {subTab === "boost" && (
+        <BoostSuggestionsList suggestions={boostSuggestions} onStatus={onBoostStatus} />
+      )}
       </div>
       {scheduleModal && (
         <SchedulePostModal
@@ -1391,6 +1469,7 @@ const AGENT_JOB_ENDPOINTS = {
   ads_collection: "/jobs/ads-collection/run",
   post_publisher: "/jobs/post-publisher/run",
   instagram_notify: "/jobs/instagram-notify/test",
+  boost_suggestions: "/jobs/boost-suggestions/run",
 };
 
 function AgentsTab({ agents, onRun, running }) {
@@ -1542,6 +1621,7 @@ export default function App() {
   const [igPosts, setIgPosts] = useState([]);
   const [igSuggestions, setIgSuggestions] = useState([]);
   const [scheduledPosts, setScheduledPosts] = useState([]);
+  const [boostSuggestions, setBoostSuggestions] = useState([]);
   const [igRunning, setIgRunning] = useState(null);
   const [agents, setAgents] = useState([]);
   const [agentRunning, setAgentRunning] = useState(null);
@@ -1556,7 +1636,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [s, dy, c, wr, goal, igData, leadsData, csData, agentsData, spData] = await Promise.all([
+      const [s, dy, c, wr, goal, igData, leadsData, csData, agentsData, spData, bsData] = await Promise.all([
         apiFetch(`/dashboard/summary?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/daily?days=${d}`).then((r) => r.json()),
         apiFetch(`/dashboard/campaigns?days=${d}`).then((r) => r.json()),
@@ -1567,6 +1647,7 @@ export default function App() {
         apiFetch(`/dashboard/content-suggestions`).then((r) => r.json()),
         apiFetch(`/dashboard/agents`).then((r) => r.json()),
         apiFetch(`/api/scheduled-posts`).then((r) => r.json()).catch(() => ({ ok: false })),
+        apiFetch(`/dashboard/boost-suggestions`).then((r) => r.json()).catch(() => ({ ok: false })),
       ]);
       if (s.ok) setSummary(s);
       if (dy.ok) setSeries(dy.series || []);
@@ -1578,6 +1659,7 @@ export default function App() {
       if (csData.ok) setIgSuggestions(csData.suggestions || []);
       if (agentsData.ok) setAgents(agentsData.agents || []);
       if (spData.ok) setScheduledPosts(spData.posts || []);
+      if (bsData.ok) setBoostSuggestions(bsData.suggestions || []);
     } catch {
       setError("Falha ao carregar dados do backend.");
     } finally {
@@ -1693,6 +1775,13 @@ export default function App() {
     const res = await apiFetch(`/content-suggestions/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
     if (res.ok) {
       setIgSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
+    }
+  }
+
+  async function handleBoostStatus(id, status) {
+    const res = await apiFetch(`/boost-suggestions/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    if (res.ok) {
+      setBoostSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
     }
   }
 
@@ -1895,6 +1984,8 @@ export default function App() {
             onScheduleSubmit={handleScheduleSubmit}
             onScheduleCancel={handleScheduleCancel}
             running={igRunning}
+            boostSuggestions={boostSuggestions}
+            onBoostStatus={handleBoostStatus}
           />
         )}
         {tab === "agents" && <AgentsTab agents={agents} onRun={handleAgentRun} running={agentRunning} />}
