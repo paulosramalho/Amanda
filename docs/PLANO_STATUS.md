@@ -154,14 +154,22 @@ Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
 | **Suporte a Reel** — `publishReel` com polling do `status_code` (FINISHED/ERROR/EXPIRED), timeout 4min | ✅ commit `09e7d0f` |
 
 ### Estado atual (recuperação de contexto)
-Fase 1 e Fase 2 ✅ concluídas. **Próximo passo:** Fase 3 (Upload de mídia direto via R2/S3) — não iniciada. Reusar este doc como ponto de partida ao retomar.
+Fases 1, 2 e 3 ✅ código implementado. **Próximo passo:** aguardando Paulo configurar Cloudflare R2 (criar bucket + API token + adicionar 5 env vars no Render). Depois disso, Fase 3 estará operacional. Em seguida: Fase 4 (multi-cliente Addere — não iniciada).
 
-### Fase 3 — Upload de mídia direto (🔲 não iniciada)
-- Bucket Cloudflare R2 ou AWS S3
-- Endpoint de upload no backend
-- Componente `MediaUpload` no frontend (drag & drop)
-- Biblioteca de mídia (galeria)
-- **Acaba a dependência de Drive/Dropbox** — usuário sobe arquivo direto no painel
+### Fase 3 — Upload de mídia direto via R2 (✅ código pronto, 🔲 aguardando setup R2)
+| Tarefa | Status |
+|--------|--------|
+| Backend — `lib/r2.js` (S3-compatible client, upload/list/delete/exists) | ✅ commit pendente |
+| Backend — endpoints `POST /api/media/upload` (multipart) + `GET /api/media` + `DELETE /api/media` | ✅ |
+| Backend — validação por tipo (JPEG/PNG ≤8MB, MP4/MOV ≤1GB) | ✅ |
+| Frontend — botão 📤 inline em cada URL row do `SchedulePostModal` (upload direto, preenche o campo) | ✅ |
+| Frontend — botão 📚 Biblioteca (modal com grid das mídias enviadas, click para selecionar) | ✅ |
+| `.env.example` + `render.yaml` com vars `R2_*` | ✅ |
+| **Setup Cloudflare R2** (Paulo) — bucket `amanda-instagram-media`, R2.dev pública, API token Object R/W | 🔲 manual |
+| Env vars no Render | 🔲 manual após setup |
+| Teste end-to-end: upload → URL pública → publicar Instagram | 🔲 |
+
+**Setup detalhado para Paulo:** instruções no chat da sessão de 25/04/2026 (também salvas em `Depósito/R2.txt` quando preenchido).
 
 ### Fase 4 — Multi-cliente Addere (🔲)
 - Multi-conta Instagram por cliente

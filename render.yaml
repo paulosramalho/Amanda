@@ -44,3 +44,14 @@
         sync: false
       - key: TELEGRAM_CHAT_ID
         value: "8746739304"
+      # Cloudflare R2 — upload de mídia (Fase 3)
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: "amanda-instagram-media"
+      - key: R2_PUBLIC_URL_BASE
+        sync: false

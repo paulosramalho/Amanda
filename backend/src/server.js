@@ -32,6 +32,8 @@ import {
 } from "./jobs/postPublisherScheduler.js";
 import { sendAdminAlert } from "./lib/adminNotify.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
+import multer from "multer";
+import { uploadBuffer, listObjects, deleteObject, isR2Configured } from "./lib/r2.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -912,6 +914,67 @@ app.get("/api/best-time/instagram", requireAuth, async (req, res) => {
       .slice(0, 5);
 
     res.json({ ok: true, recommendations, totalPosts: posts.length, period: `últimos ${days} dias` });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+// Upload de mídia para R2 (Cloudflare) — biblioteca do painel
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB (limite do Reel; imagens validadas separadamente)
+  fileFilter: (_req, file, cb) => {
+    const allowed = /^(image\/(jpeg|png|jpg)|video\/(mp4|quicktime))$/;
+    if (allowed.test(file.mimetype)) cb(null, true);
+    else cb(new Error(`Tipo não suportado: ${file.mimetype}. Aceitos: JPEG, PNG, MP4, MOV.`));
+  },
+});
+
+app.post("/api/media/upload", requireAuth, upload.single("file"), async (req, res) => {
+  try {
+    if (!isR2Configured()) {
+      return res.status(503).json({ ok: false, message: "R2 não configurado no servidor (env vars R2_*)" });
+    }
+    if (!req.file) return res.status(400).json({ ok: false, message: "Nenhum arquivo enviado (campo 'file')" });
+
+    // Validações específicas por tipo
+    const isImage = req.file.mimetype.startsWith("image/");
+    const isVideo = req.file.mimetype.startsWith("video/");
+    if (isImage && req.file.size > 8 * 1024 * 1024) {
+      return res.status(400).json({ ok: false, message: `Imagem muito grande: ${(req.file.size / 1024 / 1024).toFixed(1)}MB. Limite Instagram: 8MB.` });
+    }
+    if (isVideo && req.file.size > 1024 * 1024 * 1024) {
+      return res.status(400).json({ ok: false, message: `Vídeo muito grande: ${(req.file.size / 1024 / 1024).toFixed(0)}MB. Limite Instagram Reel: 1GB.` });
+    }
+
+    const result = await uploadBuffer({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
+    res.status(201).json({ ok: true, ...result });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.get("/api/media", requireAuth, async (req, res) => {
+  try {
+    if (!isR2Configured()) return res.json({ ok: true, items: [], notConfigured: true });
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "100", 10) || 100, 1), 500);
+    const items = await listObjects({ limit });
+    res.json({ ok: true, items });
+  } catch (error) {
+    res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
+  }
+});
+
+app.delete("/api/media", requireAuth, async (req, res) => {
+  try {
+    const { key } = req.body || {};
+    if (!key) return res.status(400).json({ ok: false, message: "key obrigatória no body" });
+    await deleteObject(key);
+    res.json({ ok: true, key });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
   }

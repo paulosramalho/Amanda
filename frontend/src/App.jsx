@@ -600,9 +600,63 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
   const [suggestingHashtags, setSuggestingHashtags] = useState(false);
   const [bestTime, setBestTime] = useState(null); // { recommendations, period, totalPosts, message? }
   const [loadingBestTime, setLoadingBestTime] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryItems, setLibraryItems] = useState([]);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const fileInputs = useRef({});
   const [err, setErr] = useState(null);
 
   const fase2 = format === "STORY";
+
+  async function uploadFile(idx, file) {
+    if (!file) return;
+    setUploadingIdx(idx);
+    setErr(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = getToken();
+      const res = await fetch(`${API}/api/media/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.message || "Falha no upload");
+      setUrl(idx, d.url);
+    } catch (e) {
+      setErr("Falha no upload: " + (e.message || "erro"));
+    } finally {
+      setUploadingIdx(null);
+    }
+  }
+
+  async function openLibrary() {
+    setShowLibrary(true);
+    if (libraryItems.length > 0) return;
+    setLoadingLibrary(true);
+    try {
+      const res = await apiFetch("/api/media?limit=50");
+      const d = await res.json();
+      if (d.ok) setLibraryItems(d.items || []);
+    } catch {
+      setErr("Falha ao carregar biblioteca");
+    } finally {
+      setLoadingLibrary(false);
+    }
+  }
+
+  function pickFromLibrary(item) {
+    setMediaUrls((cur) => {
+      if (format === "PHOTO" || format === "REEL") return [item.url];
+      const emptyIdx = cur.findIndex((u) => !u.trim());
+      if (emptyIdx >= 0) return cur.map((u, i) => (i === emptyIdx ? item.url : u));
+      if (cur.length < 10) return [...cur, item.url];
+      return cur;
+    });
+    setShowLibrary(false);
+  }
 
   async function loadBestTime() {
     setLoadingBestTime(true);
@@ -706,6 +760,38 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
             <br/><span style={{ fontSize: 11, color: "#d97706" }}>⚠ A URL da mídia precisa ser nova (publica) — Instagram não baixa de outras URLs do próprio Instagram.</span>
           </p>
         )}
+        {showLibrary && (
+          <div style={{ marginBottom: 16, padding: 12, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <strong style={{ fontSize: 13, color: "#1e293b" }}>📚 Biblioteca de mídia</strong>
+              <button type="button" onClick={() => setShowLibrary(false)} className="btn-secondary" style={{ padding: "3px 10px", fontSize: 11 }}>Fechar</button>
+            </div>
+            {loadingLibrary ? (
+              <div style={{ fontSize: 12, color: "#64748b", textAlign: "center", padding: 20 }}>Carregando…</div>
+            ) : libraryItems.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 20 }}>
+                Nenhuma mídia ainda. Use o botão 📤 ao lado de cada URL para enviar arquivos — eles aparecerão aqui depois.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 8, maxHeight: 280, overflowY: "auto" }}>
+                {libraryItems.map((it) => {
+                  const isVideo = it.url.match(/\.(mp4|mov|webm)$/i);
+                  return (
+                    <button key={it.key} type="button" onClick={() => pickFromLibrary(it)}
+                      style={{ border: "1px solid #cbd5e1", borderRadius: 6, padding: 0, background: "white", cursor: "pointer", overflow: "hidden", aspectRatio: "1/1" }}
+                      title={`${it.key.split("/").pop()} · ${(it.size / 1024).toFixed(0)}KB · ${new Date(it.lastModified).toLocaleDateString("pt-BR")}`}>
+                      {isVideo ? (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", background: "#1e293b", color: "white", fontSize: 24 }}>🎬</div>
+                      ) : (
+                        <img src={it.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} loading="lazy" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
           <label>
             <span>Formato</span>
@@ -734,16 +820,31 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
                 <input type="url" value={u} onChange={(e) => setUrl(i, e.target.value)}
                   placeholder={format === "REEL" ? "https://...video.mp4" : "https://..."}
                   style={{ flex: 1, padding: 7, border: "1px solid #e2e8f0", borderRadius: 6 }} />
+                <input type="file" ref={(el) => { fileInputs.current[i] = el; }} style={{ display: "none" }}
+                  accept={format === "REEL" ? "video/mp4,video/quicktime" : "image/jpeg,image/png"}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(i, f); e.target.value = ""; }} />
+                <button type="button" onClick={() => fileInputs.current[i]?.click()}
+                  disabled={uploadingIdx === i} className="btn-secondary"
+                  style={{ padding: "4px 10px", fontSize: 12 }}
+                  title="Enviar arquivo direto (upload para Cloudflare R2 e preencher esta URL automaticamente)">
+                  {uploadingIdx === i ? "…" : "📤"}
+                </button>
                 {mediaUrls.length > 1 && (
                   <button type="button" onClick={() => delUrl(i)} className="btn-secondary" style={{ padding: "4px 10px" }}>×</button>
                 )}
               </div>
             ))}
-            {format === "CAROUSEL" && mediaUrls.length < 10 && (
-              <button type="button" onClick={addUrl} className="btn-secondary" style={{ marginTop: 6, padding: "5px 12px", fontSize: 12 }}>
-                + adicionar imagem
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              {format === "CAROUSEL" && mediaUrls.length < 10 && (
+                <button type="button" onClick={addUrl} className="btn-secondary" style={{ padding: "5px 12px", fontSize: 12 }}>
+                  + adicionar imagem
+                </button>
+              )}
+              <button type="button" onClick={openLibrary} className="btn-secondary" style={{ padding: "5px 12px", fontSize: 12 }}
+                title="Abrir biblioteca de mídias enviadas anteriormente para o R2">
+                📚 Biblioteca
               </button>
-            )}
+            </div>
             {format === "REEL" && (
               <div style={{ marginTop: 6, fontSize: 11, color: "#d97706", padding: "6px 10px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 4 }}>
                 ⏳ Reel é assíncrono — após o tick chamar a API, o Instagram processa o vídeo (até ~4min de polling). Status fica "Publicando" durante esse tempo.
