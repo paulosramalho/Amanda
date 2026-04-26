@@ -82,12 +82,33 @@ function currentMonth() {
 
 // ── Small components ─────────────────────────────────────────────────────────
 
-function KPICard({ label, value, sub, highlight }) {
+const QUALITY_COLOR = { good: "#059669", neutral: "#64748b", bad: "#dc2626" };
+const QUALITY_BG    = { good: "#d1fae5", neutral: "#f1f5f9", bad: "#fee2e2" };
+const QUALITY_LABEL = { good: "bom", neutral: "neutro", bad: "atenção" };
+
+function QualityBadge({ q }) {
+  if (!q || !q.rating) return null;
+  const dPct = q.deltaPct;
+  const arrow = dPct == null ? "·" : dPct > 0.001 ? "↑" : dPct < -0.001 ? "↓" : "→";
+  const dPctTxt = dPct == null ? "" : `${dPct > 0 ? "+" : ""}${(dPct * 100).toFixed(0)}%`;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      background: QUALITY_BG[q.rating], color: QUALITY_COLOR[q.rating],
+      fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 10, marginTop: 4,
+    }} title={`${QUALITY_LABEL[q.rating]} · vs período anterior: ${dPctTxt || "n/d"}`}>
+      {arrow} {dPctTxt || QUALITY_LABEL[q.rating]}
+    </span>
+  );
+}
+
+function KPICard({ label, value, sub, highlight, quality }) {
   return (
     <div className={`kpi-card${highlight ? " kpi-highlight" : ""}`}>
       <span className="kpi-label">{label}</span>
       <span className="kpi-value">{value}</span>
       {sub && <span className="kpi-sub">{sub}</span>}
+      <QualityBadge q={quality} />
     </div>
   );
 }
@@ -1739,12 +1760,12 @@ export default function App() {
             <AlertBanner alerts={summary?.alerts} />
 
             <section className="kpi-row">
-              <KPICard label="Gasto Total" value={loading ? "…" : brl(t?.spend)} sub={`${days} dias`} />
-              <KPICard label="Leads" value={loading ? "…" : (t?.leads ?? 0)} sub="conversões" highlight={t?.leads > 0} />
-              <KPICard label="CPL Médio" value={loading ? "…" : (t?.cpl != null ? brl(t.cpl) : "—")} sub="custo por lead" />
-              <KPICard label="Impressões" value={loading ? "…" : (t?.impressions ?? 0).toLocaleString("pt-BR")} sub="alcance" />
-              <KPICard label="CTR" value={loading ? "…" : pct(t?.ctr)} sub="taxa de clique" />
-              <KPICard label="Cliques" value={loading ? "…" : (t?.clicks ?? 0).toLocaleString("pt-BR")} sub="total" />
+              <KPICard label="Gasto Total" value={loading ? "…" : brl(t?.spend)} sub={`${days} dias`} quality={summary?.quality?.spend} />
+              <KPICard label="Leads" value={loading ? "…" : (t?.leads ?? 0)} sub="conversões" highlight={t?.leads > 0} quality={summary?.quality?.leads} />
+              <KPICard label="CPL Médio" value={loading ? "…" : (t?.cpl != null ? brl(t.cpl) : "—")} sub="custo por lead" quality={summary?.quality?.cpl} />
+              <KPICard label="Impressões" value={loading ? "…" : (t?.impressions ?? 0).toLocaleString("pt-BR")} sub="alcance" quality={summary?.quality?.impressions} />
+              <KPICard label="CTR" value={loading ? "…" : pct(t?.ctr)} sub="taxa de clique" quality={summary?.quality?.ctr} />
+              <KPICard label="Cliques" value={loading ? "…" : (t?.clicks ?? 0).toLocaleString("pt-BR")} sub="total" quality={summary?.quality?.clicks} />
             </section>
 
             <MonthlyGoalSection goal={monthlyGoal} totals={t} onEdit={() => setShowGoalEditor(true)} />

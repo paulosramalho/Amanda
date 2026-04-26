@@ -256,7 +256,16 @@ app.get("/dashboard/summary", async (req, res) => {
     const where = { businessDate: { gte: from } };
     if (platform) where.platform = platform;
 
-    const rows = await prisma.campaignDaily.findMany({ where });
+    // Período anterior (mesmos `days` antes do `from`) — para calcular delta
+    const previousFrom = new Date(from);
+    previousFrom.setUTCDate(previousFrom.getUTCDate() - days);
+    const wherePrev = { businessDate: { gte: previousFrom, lt: from } };
+    if (platform) wherePrev.platform = platform;
+
+    const [rows, prevRows] = await Promise.all([
+      prisma.campaignDaily.findMany({ where }),
+      prisma.campaignDaily.findMany({ where: wherePrev }),
+    ]);
 
     const totals = { spend: 0, impressions: 0, clicks: 0, leads: 0 };
     const byPlatform = {};
@@ -277,10 +286,48 @@ app.get("/dashboard/summary", async (req, res) => {
       byPlatform[row.platform].leads += row.leads;
     }
 
+    const previousTotals = { spend: 0, impressions: 0, clicks: 0, leads: 0 };
+    for (const row of prevRows) {
+      previousTotals.spend += safeNum(row.spend);
+      previousTotals.impressions += row.impressions;
+      previousTotals.clicks += row.clicks;
+      previousTotals.leads += row.leads;
+    }
+    previousTotals.spend = parseFloat(previousTotals.spend.toFixed(2));
+    previousTotals.cpl = previousTotals.leads > 0 ? parseFloat((previousTotals.spend / previousTotals.leads).toFixed(2)) : null;
+    previousTotals.ctr = previousTotals.impressions > 0 ? parseFloat((previousTotals.clicks / previousTotals.impressions).toFixed(4)) : null;
+
     totals.spend = parseFloat(totals.spend.toFixed(2));
     totals.cpl = totals.leads > 0 ? parseFloat((totals.spend / totals.leads).toFixed(2)) : null;
     totals.ctr = totals.impressions > 0 ? parseFloat((totals.clicks / totals.impressions).toFixed(4)) : null;
     totals.conversionRate = totals.clicks > 0 ? parseFloat((totals.leads / totals.clicks).toFixed(4)) : null;
+
+    // Quality indicator por métrica (good/neutral/bad)
+    function deltaPct(curr, prev) { return prev > 0 ? (curr - prev) / prev : null; }
+    function classify(metric, curr, dPct) {
+      // Benchmarks fixos quando aplicável
+      if (metric === "ctr") {
+        if (curr == null) return "neutral";
+        if (curr >= 0.03) return "good";
+        if (curr >= 0.015) return "neutral";
+        return "bad";
+      }
+      // Para os demais, usa delta vs período anterior
+      if (dPct == null) return "neutral";
+      const lowerBetter = ["spend", "cpl"].includes(metric); // gasto/CPL menor é melhor
+      const threshold = 0.05; // ±5% para ser "neutro"
+      if (Math.abs(dPct) < threshold) return "neutral";
+      const isUp = dPct > 0;
+      return (isUp !== lowerBetter) ? "good" : "bad"; // sobe + higher-better = good; sobe + lower-better = bad
+    }
+    const quality = {
+      spend:       { value: totals.spend,       prev: previousTotals.spend,       deltaPct: deltaPct(totals.spend, previousTotals.spend),             rating: classify("spend",       totals.spend,       deltaPct(totals.spend, previousTotals.spend)) },
+      leads:       { value: totals.leads,       prev: previousTotals.leads,       deltaPct: deltaPct(totals.leads, previousTotals.leads),             rating: classify("leads",       totals.leads,       deltaPct(totals.leads, previousTotals.leads)) },
+      cpl:         { value: totals.cpl,         prev: previousTotals.cpl,         deltaPct: deltaPct(totals.cpl ?? 0, previousTotals.cpl ?? 0),       rating: classify("cpl",         totals.cpl,         deltaPct(totals.cpl ?? 0, previousTotals.cpl ?? 0)) },
+      impressions: { value: totals.impressions, prev: previousTotals.impressions, deltaPct: deltaPct(totals.impressions, previousTotals.impressions), rating: classify("impressions", totals.impressions, deltaPct(totals.impressions, previousTotals.impressions)) },
+      clicks:      { value: totals.clicks,      prev: previousTotals.clicks,      deltaPct: deltaPct(totals.clicks, previousTotals.clicks),           rating: classify("clicks",      totals.clicks,      deltaPct(totals.clicks, previousTotals.clicks)) },
+      ctr:         { value: totals.ctr,         prev: previousTotals.ctr,         deltaPct: deltaPct(totals.ctr ?? 0, previousTotals.ctr ?? 0),       rating: classify("ctr",         totals.ctr,         deltaPct(totals.ctr ?? 0, previousTotals.ctr ?? 0)) },
+    };
 
     for (const plat of Object.keys(byPlatform)) {
       const p = byPlatform[plat];
@@ -290,7 +337,7 @@ app.get("/dashboard/summary", async (req, res) => {
     }
 
     const lastJob = await prisma.jobExecution.findFirst({
-      where: { jobName: "ads_collection_daily", status: "SUCCESS" },
+      where: { jobName: "ads_collection", status: "SUCCESS" },
       orderBy: { createdAt: "desc" },
       select: { finishedAt: true, details: true },
     });
@@ -311,6 +358,8 @@ app.get("/dashboard/summary", async (req, res) => {
       ok: true,
       period: { days, from: from.toISOString().slice(0, 10) },
       totals,
+      previousTotals,
+      quality,
       byPlatform,
       alerts,
       lastCollection: lastJob?.finishedAt || null,
