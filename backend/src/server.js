@@ -252,14 +252,15 @@ app.get("/dashboard/summary", async (req, res) => {
     const days = Math.min(Math.max(parseInt(req.query.days || "30", 10) || 30, 1), 90);
     const platform = req.query.platform ? String(req.query.platform).toUpperCase() : undefined;
     const from = buildFromDate(days);
+    const today = toBusinessDateAtNoon();
 
     const where = { businessDate: { gte: from } };
     if (platform) where.platform = platform;
 
-    // Período anterior (mesmos `days` antes do `from`) — para calcular delta
+    // Snapshot anterior: mesma janela rolante deslocada 1 dia (terminando ontem) — detecta variação diária
     const previousFrom = new Date(from);
-    previousFrom.setUTCDate(previousFrom.getUTCDate() - days);
-    const wherePrev = { businessDate: { gte: previousFrom, lt: from } };
+    previousFrom.setUTCDate(previousFrom.getUTCDate() - 1);
+    const wherePrev = { businessDate: { gte: previousFrom, lt: today } };
     if (platform) wherePrev.platform = platform;
 
     const [rows, prevRows] = await Promise.all([
