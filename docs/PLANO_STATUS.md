@@ -152,6 +152,7 @@ Ver `docs/SETUP_INTEGRACOES.md` para contas, IDs, OAuth e histórico completo.
 | **IA sugere hashtags** no `SchedulePostModal` — Claude Haiku, botão ✨ no campo 1º comentário | ✅ commit `41793e9` |
 | **IA sugere melhor horário** — botão 🕐 + análise estatística do histórico (likes + 2×comentários + reach/10) | ✅ commit `e759ffa` |
 | **Suporte a Reel** — `publishReel` com polling do `status_code` (FINISHED/ERROR/EXPIRED), timeout 4min | ✅ commit `09e7d0f` |
+| **Suporte a Stories** — `publishStory` (foto síncrona ou vídeo com polling), 24h, ratio 9:16 | ✅ commit `50fb3c1` (extra além do plano Fase 2) |
 
 ### Estado atual (recuperação de contexto)
 Fases 1, 2 e 3 ✅ código implementado. **Próximo passo:** aguardando Paulo configurar Cloudflare R2 (criar bucket + API token + adicionar 5 env vars no Render). Depois disso, Fase 3 estará operacional. Em seguida: Fase 4 (multi-cliente Addere — não iniciada).
