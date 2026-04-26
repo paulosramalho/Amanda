@@ -64,6 +64,7 @@ src/
       youtubeTrending.js   # YouTube Data API v3 — vídeos jurídicos em alta (BR, 7 dias)
       googleTrendsBR.js    # relatedQueries (rising) + Google News RSS para termos jurídicos
       redditBR.js          # r/conselhojuridico + r/direito — dúvidas reais (linguagem do cliente)
+      instituicoesBR.js    # STJ + Câmara + Senado via Google News RSS — pipeline decisório de Brasília
 ```
 
 ---
@@ -85,7 +86,7 @@ src/
 
 ## Job de tendências — `trendingSuggestionsJob.js`
 
-O job principal de IA. Varre 6 fontes em paralelo, consolida os sinais e pede ao Claude 7 sugestões de post.
+O job principal de IA. Varre 7 fontes em paralelo, consolida os sinais e pede ao Claude 7 sugestões de post.
 
 **Fontes coletadas:**
 1. **Conjur RSS** — `https://www.conjur.com.br/rss.xml` (15 manchetes)
@@ -94,8 +95,9 @@ O job principal de IA. Varre 6 fontes em paralelo, consolida os sinais e pede ao
 4. **YouTube BR** — `youtubeTrending.js` — YouTube Data API v3, busca 3 queries jurídicas, filtra memes (≈13 títulos, custa 300 unidades/dia)
 5. **Google Trends BR** — `googleTrendsBR.js` — `relatedQueries` (rising) + Google News RSS (≈24 sinais)
 6. **Reddit BR** — `redditBR.js` — `r/conselhojuridico` + `r/direito` (top da semana, ≈16 posts, sem auth, User-Agent obrigatório)
+7. **Instituições BR** — `instituicoesBR.js` — STJ + Câmara + Senado via Google News RSS (≈15 manchetes do pipeline decisório de Brasília)
 
-**Total típico:** ~98 sinais por execução → Claude Haiku gera 7 `ContentSuggestion` com formato (REEL/CAROUSEL/POST/STORIES), reasoning e fontes.
+**Total típico:** ~113 sinais por execução → Claude Haiku gera 7 `ContentSuggestion` com formato (REEL/CAROUSEL/POST/STORIES), reasoning e fontes.
 
 **Endpoint:** `POST /jobs/trending-suggestions/run` (requer JWT)
 

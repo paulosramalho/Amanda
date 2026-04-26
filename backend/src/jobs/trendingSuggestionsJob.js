@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { fetchYoutubeTrending } from "./sources/youtubeTrending.js";
 import { fetchGoogleTrendsBR } from "./sources/googleTrendsBR.js";
 import { fetchRedditBR } from "./sources/redditBR.js";
+import { fetchInstituicoesBR } from "./sources/instituicoesBR.js";
 
 const FEEDS = [
   { name: "Conjur",    url: "https://www.conjur.com.br/rss.xml" },
@@ -44,11 +45,12 @@ export async function runTrendingSuggestionsJob({ triggeredBy = "manual" } = {})
   });
 
   // Busca todas as fontes em paralelo
-  const [rssResults, youtubeTitles, googleTitles, redditTitles] = await Promise.all([
+  const [rssResults, youtubeTitles, googleTitles, redditTitles, instTitles] = await Promise.all([
     Promise.all(FEEDS.map(async (f) => ({ source: f.name, titles: await fetchRssTitles(f) }))),
     fetchYoutubeTrending().catch(() => []),
     fetchGoogleTrendsBR().catch(() => []),
     fetchRedditBR().catch(() => []),
+    fetchInstituicoesBR().catch(() => []),
   ]);
 
   // Monta lista unificada com prefixo de fonte
@@ -57,6 +59,7 @@ export async function runTrendingSuggestionsJob({ triggeredBy = "manual" } = {})
     ...youtubeTitles.map((t) => `[YouTube] ${t}`),
     ...googleTitles.map((t) => `[Google Trends BR] ${t}`),
     ...redditTitles.map((t) => `[Reddit BR] ${t}`),
+    ...instTitles.map((t) => `[Instituições BR] ${t}`),
   ];
 
   if (allTitles.length === 0) {
@@ -69,6 +72,7 @@ export async function runTrendingSuggestionsJob({ triggeredBy = "manual" } = {})
     ...(youtubeTitles.length > 0 ? ["YouTube"] : []),
     ...(googleTitles.length > 0 ? ["Google Trends BR"] : []),
     ...(redditTitles.length > 0 ? ["Reddit BR"] : []),
+    ...(instTitles.length > 0 ? ["Instituições BR"] : []),
   ];
 
   const prompt = `Você é estrategista de conteúdo para @amandamramalho, advogada com foco em Direito Empresarial, Trabalhista e do Consumidor.
@@ -78,6 +82,7 @@ Abaixo estão sinais de tendência coletados de múltiplas fontes neste momento:
 - YouTube Brasil: títulos de vídeos jurídicos mais assistidos nos últimos 7 dias
 - Google Trends BR: termos em alta nas buscas do Brasil hoje
 - Reddit BR (r/conselhojuridico, r/direito): dúvidas e relatos reais de pessoas comuns — sinaliza linguagem viva e dor real do cliente potencial
+- Instituições BR (STJ + Câmara + Senado): pipeline decisório em Brasília — mostra o que está sendo julgado/votado AGORA e vai virar pauta nos próximos dias
 
 ${allTitles.join("\n")}
 
