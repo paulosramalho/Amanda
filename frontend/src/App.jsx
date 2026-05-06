@@ -639,7 +639,7 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
   const [format, setFormat] = useState(initialFormat);
   const [caption, setCaption] = useState(
     initial.caption
-    ?? (recycleFrom?.caption ?? "")
+    ?? recycleFrom?.caption
     ?? (suggestion ? suggestion.theme : "")
     ?? ""
   );
@@ -657,8 +657,6 @@ function SchedulePostModal({ suggestion, existing, recycleFrom, defaultDate, onC
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const fileInputs = useRef({});
   const [err, setErr] = useState(null);
-
-  const fase2 = false;
 
   async function uploadFile(idx, file) {
     if (!file) return;
@@ -1591,7 +1589,7 @@ function LoginScreen({ onLogin }) {
       <div className="login-box">
         <div className="login-brand">
           <span className="brand-dot" />
-          AMR Ads Control
+          Amanda Ramalho Ads Control
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <label className="form-label">Senha de acesso</label>
@@ -1710,12 +1708,31 @@ export default function App() {
     if (r.ok) setAgents(r.agents || []);
   }
 
+  async function refreshContentSuggestions() {
+    const r = await apiFetch("/dashboard/content-suggestions").then((res) => res.json());
+    if (r.ok) setIgSuggestions(r.suggestions || []);
+  }
+
+  async function refreshBoostSuggestions() {
+    const r = await apiFetch("/dashboard/boost-suggestions").then((res) => res.json());
+    if (r.ok) setBoostSuggestions(r.suggestions || []);
+  }
+
   async function handleAgentRun(jobName) {
     const endpoint = AGENT_JOB_ENDPOINTS[jobName];
     if (!endpoint) return;
     setAgentRunning(jobName);
     try {
-      await apiFetch(endpoint, { method: "POST" });
+      const res = await apiFetch(endpoint, { method: "POST" });
+      const data = await res.json().catch(() => ({ ok: false }));
+      if (data.ok) {
+        if (["content_suggestions", "trending_suggestions"].includes(jobName)) {
+          await refreshContentSuggestions();
+        }
+        if (jobName === "boost_suggestions") {
+          await refreshBoostSuggestions();
+        }
+      }
     } finally {
       await refreshAgents();
       setAgentRunning(null);
@@ -1751,43 +1768,15 @@ export default function App() {
     }
   }
 
-  async function handleIgSuggestions() {
-    setIgRunning("suggestions");
-    try {
-      const res = await apiFetch("/jobs/content-suggestions/run", { method: "POST" });
-      const d = await res.json();
-      if (d.ok) {
-        const cs = await apiFetch("/dashboard/content-suggestions").then((r) => r.json());
-        if (cs.ok) setIgSuggestions(cs.suggestions || []);
-      }
-    } finally {
-      setIgRunning(null);
-    }
-  }
-
-  async function handleTrending() {
-    setIgRunning("trending");
-    try {
-      const res = await apiFetch("/jobs/trending-suggestions/run", { method: "POST" });
-      const d = await res.json();
-      if (d.ok) {
-        const cs = await apiFetch("/dashboard/content-suggestions").then((r) => r.json());
-        if (cs.ok) setIgSuggestions(cs.suggestions || []);
-      }
-    } finally {
-      setIgRunning(null);
-    }
-  }
-
   async function handleSuggestionStatus(id, status) {
-    const res = await apiFetch(`/content-suggestions/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    const res = await apiFetch(`/content-suggestions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     if (res.ok) {
       setIgSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
     }
   }
 
   async function handleBoostStatus(id, status) {
-    const res = await apiFetch(`/boost-suggestions/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+    const res = await apiFetch(`/boost-suggestions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     if (res.ok) {
       setBoostSuggestions((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
     }
@@ -1828,7 +1817,7 @@ export default function App() {
       <header className="dash-header">
         <div className="dash-brand">
           <span className="brand-dot" />
-          AMR Ads Control
+          Amanda Ramalho Ads Control
         </div>
         <div className="dash-controls">
           <div className="period-tabs">
