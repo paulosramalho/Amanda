@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { sendAdminAlert } from "../lib/adminNotify.js";
+import { reporter } from "../lib/cockpit.js";
 
 const BASE_URL = `https://graph.facebook.com/${process.env.INSTAGRAM_API_VERSION || "v22.0"}`;
 const DEFAULT_TICK_MS = 5 * 60 * 1000;
@@ -327,7 +328,9 @@ export async function publishNow(postId) {
 export function startPostPublisherScheduler() {
   state.tickMs = Math.max(60_000, toInteger(process.env.POST_PUBLISHER_TICK_MS, DEFAULT_TICK_MS));
   if (timer) clearInterval(timer);
-  timer = setInterval(() => { void runPostPublisherTick(); }, state.tickMs);
+  timer = setInterval(() => {
+    void reporter.run("post_publisher", () => runPostPublisherTick()).catch(() => {});
+  }, state.tickMs);
   state.started = true;
   console.log(`[postPublisher] scheduler iniciado (tick=${state.tickMs}ms, IG_PUBLISH_ENABLED=${process.env.IG_PUBLISH_ENABLED || "false"})`);
   return { ...state };

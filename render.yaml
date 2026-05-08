@@ -18,6 +18,13 @@
         sync: false
       - key: JWT_SECRET
         sync: false
+      # Cockpit de Agentes
+      - key: COCKPIT_URL
+        value: https://cockpit-agentes.onrender.com
+      - key: COCKPIT_PROJECT_TOKEN
+        sync: false
+      - key: COCKPIT_PROJECT_SLUG
+        value: amanda
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: INSTAGRAM_ENABLED

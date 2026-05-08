@@ -35,6 +35,7 @@ import { sendAdminAlert } from "./lib/adminNotify.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
 import multer from "multer";
 import { uploadBuffer, listObjects, deleteObject, isR2Configured } from "./lib/r2.js";
+import { reporter, COCKPIT_AGENTS } from "./lib/cockpit.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1167,6 +1168,8 @@ app.post("/jobs/instagram-notify/test", requireAuth, async (req, res) => {
     res.status(500).json({ ok: false, message });
   }
 });
+
+await reporter.registerAgents(COCKPIT_AGENTS).catch((e) => console.warn("[cockpit] register falhou:", e?.message || e));
 
 const schedulerState = startAdsScheduler();
 console.log("Ads scheduler state:", schedulerState);

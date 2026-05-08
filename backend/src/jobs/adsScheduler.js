@@ -1,5 +1,6 @@
 import { runAdsCollectionJob } from "./adsCollectionJob.js";
 import { runAnomalyDetection } from "./anomalyDetector.js";
+import { reporter } from "../lib/cockpit.js";
 
 const DEFAULT_TICK_MS = 60_000;
 const DEFAULT_RUN_UTC_HOUR = 15;
@@ -51,15 +52,12 @@ async function tickScheduler() {
   schedulerState.lastRunKey = runKey;
 
   try {
-    await runAdsCollectionJob({ triggeredBy: "scheduler" });
+    await reporter.run("ads_collection", async () => {
+      await runAdsCollectionJob({ triggeredBy: "scheduler" });
+      await runAnomalyDetection();
+    });
   } catch (error) {
-    console.error("[ads-scheduler] Daily collection failed:", error);
-  }
-
-  try {
-    await runAnomalyDetection();
-  } catch (error) {
-    console.error("[ads-scheduler] Anomaly detection failed:", error);
+    console.error("[ads-scheduler] Daily run failed:", error);
   }
 }
 
