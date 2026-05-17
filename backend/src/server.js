@@ -37,6 +37,9 @@ import multer from "multer";
 import { uploadBuffer, listObjects, deleteObject, isR2Configured } from "./lib/r2.js";
 import { reporter, COCKPIT_AGENTS } from "./lib/cockpit.js";
 
+const _JWT_SECRET = process.env.JWT_SECRET;
+if (!_JWT_SECRET) throw new Error("JWT_SECRET env var obrigatória — configure no Render");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -59,7 +62,7 @@ function requireAuth(req, res, next) {
   const token = req.header("authorization")?.replace("Bearer ", "");
   if (!token) { res.status(401).json({ ok: false, message: "Token ausente" }); return; }
   try {
-    jwt.verify(token, process.env.JWT_SECRET || "amr-ads-secret");
+    jwt.verify(token, _JWT_SECRET);
     next();
   } catch {
     res.status(401).json({ ok: false, message: "Token inválido ou expirado" });
@@ -82,7 +85,7 @@ app.post("/auth/login", (req, res) => {
   const configured = process.env.DASHBOARD_PASSWORD;
   if (!configured) { res.status(500).json({ ok: false, message: "DASHBOARD_PASSWORD não configurado" }); return; }
   if (password !== configured) { res.status(401).json({ ok: false, message: "Senha incorreta" }); return; }
-  const token = jwt.sign({ sub: "dashboard" }, process.env.JWT_SECRET || "amr-ads-secret", { expiresIn: "30d" });
+  const token = jwt.sign({ sub: "dashboard" }, _JWT_SECRET, { expiresIn: "30d" });
   res.json({ ok: true, token });
 });
 
@@ -170,7 +173,7 @@ app.post("/jobs/ads-collection/google-auth-check", handleGoogleAuthCheck);
 
 app.post("/jobs/ads-collection/run", async (req, res) => {
   const jwtHeader = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : null;
-  const isJwt = jwtHeader ? (() => { try { jwt.verify(jwtHeader, process.env.JWT_SECRET || "amr-ads-secret"); return true; } catch { return false; } })() : false;
+  const isJwt = jwtHeader ? (() => { try { jwt.verify(jwtHeader, _JWT_SECRET); return true; } catch { return false; } })() : false;
   if (!isJwt && !isJobRunnerAuthorized(req)) {
     res.status(401).json({ ok: false, message: "Unauthorized job execution" });
     return;
