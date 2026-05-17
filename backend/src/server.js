@@ -43,7 +43,12 @@ if (!_JWT_SECRET) throw new Error("JWT_SECRET env var obrigatória — configure
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map((s) => s.trim())
+    : false,
+  credentials: true,
+}));
 app.use(express.json());
 app.use("/dashboard", requireAuth);
 app.use("/leads", requireAuth);
@@ -71,11 +76,7 @@ function requireAuth(req, res, next) {
 
 function isJobRunnerAuthorized(req) {
   const configuredApiKey = process.env.JOB_RUNNER_API_KEY;
-
-  if (!configuredApiKey) {
-    return true;
-  }
-
+  if (!configuredApiKey) return false;
   const receivedApiKey = req.header("x-api-key") || req.header("authorization")?.replace("Bearer ", "");
   return receivedApiKey === configuredApiKey;
 }
@@ -198,7 +199,7 @@ app.post("/jobs/ads-collection/run", async (req, res) => {
   }
 });
 
-app.get("/jobs/ads-collection/recent", async (req, res) => {
+app.get("/jobs/ads-collection/recent", requireAuth, async (req, res) => {
   try {
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const jobs = await listRecentAdsCollectionJobs(limit);
@@ -216,7 +217,7 @@ app.get("/jobs/ads-collection/recent", async (req, res) => {
   }
 });
 
-app.get("/campaigns/daily", async (req, res) => {
+app.get("/campaigns/daily", requireAuth, async (req, res) => {
   try {
     const rows = await listCampaignDailyRows({
       date: req.query.date ? String(req.query.date) : undefined,
