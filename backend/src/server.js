@@ -175,7 +175,6 @@ app.post("/jobs/ads-collection/google-auth-check", handleGoogleAuthCheck);
 app.post("/jobs/ads-collection/run", async (req, res) => {
   const jwtHeader = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : null;
   const isJwt = jwtHeader ? (() => { try { jwt.verify(jwtHeader, _JWT_SECRET); return true; } catch { return false; } })() : false;
-  console.log(`[ads-collection/run] caller ip=${req.ip} ua="${req.headers["user-agent"]}" auth=${isJwt ? "jwt" : "api-key"}`);
   if (!isJwt && !isJobRunnerAuthorized(req)) {
     res.status(401).json({ ok: false, message: "Unauthorized job execution" });
     return;
