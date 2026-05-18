@@ -172,3 +172,21 @@ Substituição do mLabs pelo ciclo editorial integrado: a sugestão de IA vira a
 **Fases seguintes:** Calendário Editorial + Reel (Fase 2), Upload de mídia via R2/S3 (Fase 3), Multi-cliente para Addere (Fase 4).
 
 **Pré-requisito de token:** o `INSTAGRAM_ACCESS_TOKEN` precisa ter os escopos `instagram_content_publish` (para publicar) e `instagram_manage_insights` (para métricas). Renovação detalhada em `docs/SETUP_INTEGRACOES.md`.
+
+---
+
+## Autenticação
+
+JWT via **Authorization header** (`Bearer <token>`). Token armazenado em `localStorage.amr_token` no frontend (`frontend/src/App.jsx`).
+
+Middleware `authenticate` definido inline em `backend/src/server.js`. Rota de login: `POST /auth/login` → `{ ok: true, token }`. Token expira em 30 dias.
+
+---
+
+## Padrões UI
+
+Os padrões globais estão em `~/.claude/CLAUDE.md`. Aplicação neste projeto:
+
+- **Toast:** projeto não tem componente Toast próprio (frontend é um único `App.jsx`). Nunca usar `alert()`/`confirm()` nativos — adicionar componente Toast se necessário.
+- **MoneyInput / T12:00:00Z:** não se aplicam — projeto não tem operações financeiras nem campos `type="date"` significativos.
+- **Datas exibidas:** sempre `DD/MM/AAAA` em BRT (`America/Belem`).
