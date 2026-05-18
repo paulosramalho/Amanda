@@ -142,7 +142,7 @@ async function tick() {
 export function startInstagramScheduler() {
   const enabled = toBoolean(process.env.INSTAGRAM_SCHEDULER_ENABLED, false);
   state.runUtcHour = Math.min(23, Math.max(0, toInteger(process.env.INSTAGRAM_RUN_UTC_HOUR, DEFAULT_RUN_UTC_HOUR)));
-  state.tickMs = Math.max(15_000, toInteger(process.env.ADS_COLLECTION_SCHEDULER_TICK_MS, DEFAULT_TICK_MS));
+  state.tickMs = Math.max(15_000, toInteger(process.env.INSTAGRAM_SCHEDULER_TICK_MS, DEFAULT_TICK_MS));
 
   if (!enabled) { state.started = false; return { ...state, enabled }; }
 
