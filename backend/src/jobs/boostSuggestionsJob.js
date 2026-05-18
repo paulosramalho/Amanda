@@ -149,24 +149,37 @@ Retorne SOMENTE um array JSON válido, ranqueado por prioridade:
       .filter((s) => s.postId && eligibleIds.has(s.postId) && Number.isFinite(s.amount) && s.amount >= MIN_BOOST_BRL && s.reasoning)
       .slice(0, MAX_SUGGESTIONS);
 
-    await prisma.boostSuggestion.createMany({
-      data: valid.map((s) => ({
-        postId: s.postId,
-        suggestedAmount: Math.round(s.amount * 100), // armazena em centavos
-        estimatedLeads: Number.isFinite(s.estimatedLeads) ? s.estimatedLeads : null,
-        estimatedCpl: avgCpl ? avgCpl.toFixed(2) : null,
-        reasoning: String(s.reasoning).slice(0, 280),
-        status: "PENDING",
-      })),
+    const existingSuggestions = await prisma.boostSuggestion.findMany({
+      where: { postId: { in: valid.map((s) => s.postId) } },
+      select: { postId: true },
     });
+    const existingPostIds = new Set(existingSuggestions.map((s) => s.postId));
+    const newSuggestions = valid.filter((s) => !existingPostIds.has(s.postId));
+
+    if (newSuggestions.length > 0) {
+      await prisma.boostSuggestion.createMany({
+        data: newSuggestions.map((s) => ({
+          postId: s.postId,
+          suggestedAmount: Math.round(s.amount * 100), // armazena em centavos
+          estimatedLeads: Number.isFinite(s.estimatedLeads) ? s.estimatedLeads : null,
+          estimatedCpl: avgCpl ? avgCpl.toFixed(2) : null,
+          reasoning: String(s.reasoning).slice(0, 280),
+          status: "PENDING",
+        })),
+      });
+    }
 
     await prisma.jobExecution.update({
       where: { id: job.id },
-      data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, created: valid.length, eligible: eligible.length, remaining, avgCpl } },
+      data: {
+        status: "SUCCESS",
+        finishedAt: new Date(),
+        details: { trigger: triggeredBy, created: newSuggestions.length, skippedExisting: valid.length - newSuggestions.length, eligible: eligible.length, remaining, avgCpl },
+      },
     });
 
-    console.log(`[boost-suggestions] ${triggeredBy}: ${valid.length} sugestões (de ${eligible.length} elegíveis, saldo R$ ${remaining ?? "n/d"})`);
-    return { ok: true, created: valid.length };
+    console.log(`[boost-suggestions] ${triggeredBy}: ${newSuggestions.length} sugestões (${valid.length - newSuggestions.length} já existentes, de ${eligible.length} elegíveis, saldo R$ ${remaining ?? "n/d"})`);
+    return { ok: true, created: newSuggestions.length, skippedExisting: valid.length - newSuggestions.length };
   } catch (error) {
     await prisma.jobExecution.update({
       where: { id: job.id },

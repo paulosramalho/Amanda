@@ -454,7 +454,7 @@
   <div class="cover-meta">
     <div class="cover-meta-item">
       <div class="cover-meta-label">Versão</div>
-      <div class="cover-meta-value">1.1 — Abril 2026</div>
+      <div class="cover-meta-value">1.4 — Abril 2026</div>
     </div>
     <div class="cover-meta-item">
       <div class="cover-meta-label">Destinatários</div>
@@ -527,6 +527,12 @@
     <span class="toc-title">Notificações Automáticas</span>
     <span class="toc-dots"></span>
     <span class="toc-pg">20</span>
+  </a>
+  <a href="#sec10" class="toc-entry">
+    <span class="toc-num">10.</span>
+    <span class="toc-title">Agendamento e Publicação Instagram <span class="new-badge" style="margin-left:6px;">v1.2</span></span>
+    <span class="toc-dots"></span>
+    <span class="toc-pg">22</span>
   </a>
 </div>
 
@@ -1189,10 +1195,182 @@
         <td>Coleta de posts do Instagram + análise de IA + pesquisa de tendências jurídicas (YouTube BR, Google Trends BR, portais Conjur/JOTA/Migalhas) + novas sugestões de conteúdo</td>
       </tr>
       <tr><td><strong>Segunda-feira 09h</strong></td><td>Geração do Relatório Semanal e envio por e-mail</td></tr>
+      <tr><td><strong>A cada 5min</strong></td><td>Publicador de Posts: verifica se há agendamentos vencidos para publicar (ver Seção 10)</td></tr>
     </table>
+  </div>
+</div>
+
+<!-- ══ SEÇÃO 10 ══ -->
+<div class="section" id="sec10">
+  <div class="section-banner">
+    <div class="section-num">Seção 10 <span class="new-badge" style="margin-left:6px;">v1.2</span></div>
+    <h2>Agendamento e Publicação Instagram</h2>
+    <div class="section-sub">Da sugestão da IA à publicação automática — sem mLabs nem ferramenta externa</div>
+  </div>
+  <div class="section-body">
+    <p>A versão 1.2 fecha o ciclo editorial inteiro dentro do painel: a IA sugere uma pauta, você agenda dentro do próprio painel, o sistema publica no Instagram no horário escolhido, marca a sugestão como feita e o coletor traz a métrica de volta para análise. <strong>Não é mais necessário usar mLabs ou ferramenta de agendamento externa.</strong></p>
+
+    <div class="callout callout-blue no-break">
+      <p><strong>Onde está:</strong> aba <strong>Conteúdo</strong> ganhou duas novas sub-abas:</p>
+      <ul style="margin-top:6px;margin-bottom:0;">
+        <li><strong>Sugestão de Conteúdo</strong> → cada sugestão da tabela tem coluna "Agendamento" com botão <strong>📅 Agendar</strong> e badge de status (visão por sugestão)</li>
+        <li><strong>Calendário</strong> → grade mensal 7×6 com todos os agendamentos como cards coloridos por status (visão por data)</li>
+      </ul>
+    </div>
+
+    <h3>Pré-requisitos (configurados pelo administrador)</h3>
+    <ul>
+      <li>Perfil <strong>@amandamramalho</strong> precisa ser do tipo <strong>Conta Profissional (Business ou Creator)</strong> — perfis pessoais não publicam pela API.</li>
+      <li>Token Instagram precisa ter o escopo <code>instagram_content_publish</code> (além dos escopos de leitura já existentes).</li>
+      <li>Variável <code>IG_PUBLISH_ENABLED=true</code> no Render. Quando está em <code>false</code>, o agendamento é gravado mas o publicador não chama a API (modo seguro de teste).</li>
+    </ul>
+
+    <h3 style="margin-top:24px;">Onde colocar os arquivos de mídia</h3>
+    <p>A API do Instagram <strong>não aceita upload direto</strong> — ela busca a mídia de uma <strong>URL pública</strong>. Portanto, antes de agendar, o arquivo precisa estar acessível em algum lugar público. Opções:</p>
+
+    <table class="no-break">
+      <tr><th>Onde hospedar</th><th>Como obter URL pública</th></tr>
+      <tr>
+        <td><strong>Google Drive</strong> (recomendado)</td>
+        <td>
+          1. Subir imagem no Drive de <code>amandaramalhoadv@gmail.com</code><br>
+          2. Botão direito → "Compartilhar" → marcar <strong>"Qualquer pessoa com o link"</strong><br>
+          3. Copiar o link, identificar o <code>FILE_ID</code> nele (a parte entre <code>/d/</code> e <code>/view</code>)<br>
+          4. Usar no formato: <code>https://drive.google.com/uc?export=view&amp;id=FILE_ID</code>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Dropbox</strong></td>
+        <td>1. Subir e gerar link de compartilhamento. 2. Trocar o sufixo <code>?dl=0</code> por <code>?raw=1</code> na URL.</td>
+      </tr>
+      <tr>
+        <td><strong>imgur / Imgbb</strong></td>
+        <td>Upload anônimo retorna URL direta — útil para teste rápido.</td>
+      </tr>
+    </table>
+
+    <div class="callout callout-amber no-break">
+      <p><strong>Atenção à permissão:</strong> a URL precisa estar acessível por <strong>qualquer pessoa</strong> sem login. Se estiver "Restrito" no Drive, o Instagram falha ao baixar e o post entra como Falhou. Teste sempre em janela anônima do navegador antes de agendar.</p>
+    </div>
+
+    <h3 style="margin-top:24px;">Sugestão de organização no Drive</h3>
+    <ul>
+      <li>Pasta raiz: <code>AMR Ads / Posts Instagram /</code></li>
+      <li>Subpasta por mês: <code>2026-04 abril/</code>, <code>2026-05 maio/</code>, etc.</li>
+      <li>Nome do arquivo: <code>YYYY-MM-DD - tema curto.jpg</code></li>
+    </ul>
+
+    <h3 style="margin-top:24px;">Limites técnicos</h3>
+    <table class="no-break">
+      <tr><th>Item</th><th>Limite</th></tr>
+      <tr><td>Formato de imagem</td><td><strong>JPEG ou PNG</strong> (PNG sem canal alpha). HEIC, WebP, AVIF não funcionam.</td></tr>
+      <tr><td>Tamanho máximo por imagem</td><td><strong>8 MB</strong></td></tr>
+      <tr><td>Aspect ratio</td><td>De 4:5 (vertical) a 1.91:1 (paisagem). Quadrado (1:1) é o mais seguro.</td></tr>
+      <tr><td>Imagens no carrossel</td><td><strong>2 a 10</strong></td></tr>
+      <tr><td>Caracteres na legenda</td><td>2.200 (com contador no modal)</td></tr>
+      <tr><td>Rate limit de publicação</td><td>50 posts / 24 h por conta (mais que suficiente para uso normal)</td></tr>
+      <tr><td>Tipo de URL aceita</td><td>HTTPS (não HTTP), pública, sem login</td></tr>
+      <tr><td>Formatos suportados nesta versão</td><td>Foto + Carrossel. <strong>Reel e Stories ficam para v1.3</strong> (publicação assíncrona).</td></tr>
+    </table>
+
+    <h3 style="margin-top:24px;">Como agendar — passo a passo</h3>
+    <ol>
+      <li><strong>Subir a imagem</strong> no Google Drive (ou serviço similar) e copiar a URL pública (ver acima).</li>
+      <li><strong>Abrir o painel</strong> → aba <strong>Conteúdo</strong> → sub-aba <strong>Sugestão de Conteúdo</strong>.</li>
+      <li><strong>Identificar a sugestão</strong> que quer publicar e clicar <strong>📅 Agendar</strong> ao final da linha.</li>
+      <li><strong>Preencher o formulário:</strong>
+        <ul>
+          <li><em>Formato:</em> Foto (1 imagem) ou Carrossel (2-10 imagens)</li>
+          <li><em>Legenda:</em> texto completo do post (até 2.200 caracteres)</li>
+          <li><em>URL(s) da mídia:</em> colar a URL preparada no passo 1; para carrossel, clicar "+ adicionar imagem" e colar as próximas <strong>na ordem desejada</strong> (a primeira é a capa)</li>
+          <li><em>Data e Hora (BRT):</em> escolher quando publicar (padrão: amanhã às 09:00)</li>
+          <li><em>1º comentário (opcional):</em> ótimo para deixar hashtags fora da legenda — postado automaticamente após a publicação</li>
+        </ul>
+      </li>
+      <li><strong>Clicar Agendar.</strong> O badge de status aparece como Agendado · DD/MM/AAAA HH:MM.</li>
+      <li><strong>Esperar o horário.</strong> O publicador roda a cada 5 minutos. Quando chega a hora, o badge muda para Publicando, depois Publicado · DD/MM/AAAA HH:MM · ver. O link "ver" abre o post no Instagram.</li>
+      <li>A sugestão fica automaticamente marcada como <strong>Feito</strong>.</li>
+    </ol>
+
+    <h3 style="margin-top:24px;">Status do agendamento</h3>
+    <table class="no-break">
+      <tr><th>Status</th><th>Significa</th><th>Ações</th></tr>
+      <tr><td><strong>Rascunho</strong></td><td>Criado mas ainda não confirmado para a fila.</td><td>Editar para virar Agendado.</td></tr>
+      <tr><td><strong>Agendado</strong></td><td>Na fila aguardando o horário.</td><td>Editar (legenda, URL, horário) ou Cancelar.</td></tr>
+      <tr><td><strong>Publicando</strong></td><td>Chamada à API em andamento (5-30 segundos).</td><td>Aguardar.</td></tr>
+      <tr><td><strong>Publicado</strong></td><td>No ar — link "ver" abre no Instagram.</td><td>Apenas conferir.</td></tr>
+      <tr><td><strong>Falhou</strong></td><td>3 tentativas falharam. Tooltip mostra o erro. E-mail de alerta foi enviado.</td><td>Botão Agendar volta a aparecer — corrigir o problema e re-agendar.</td></tr>
+      <tr><td><strong>Cancelado</strong></td><td>Cancelado manualmente — fica no histórico, não publica.</td><td>Botão Agendar volta para criar novo.</td></tr>
+    </table>
+
+    <h3 style="margin-top:24px;">Visualização em Calendário</h3>
+    <p>A sub-aba <strong>Calendário</strong> mostra a grade mensal com todos os agendamentos como pequenos cards no dia correspondente, coloridos pelo status. Use <strong>◀ ▶</strong> para navegar entre meses, <strong>Hoje</strong> para voltar ao atual, e os <strong>chips de status</strong> no canto direito para filtrar (Agendado, Publicado, Falhou, etc — com contagem ao lado). <strong>Clique num dia futuro vazio</strong> para criar novo agendamento já com a data preenchida; <strong>clique num card</strong> para editar/cancelar. Cada dia exibe até 3 cards; quando há mais, aparece "+N" no canto.</p>
+
+    <h3 style="margin-top:24px;">Reciclar um post coletado</h3>
+    <p>Na sub-aba <strong>Conteúdo</strong> (tabela de posts), a coluna <strong>Reciclar</strong> tem o botão <strong>🔄</strong>. Click → abre o modal de agendamento com a legenda e o formato (Foto/Carrossel/Reel) <strong>pré-preenchidos</strong> a partir do post original. <strong>A URL da mídia precisa ser nova</strong> — o Instagram não baixa imagens/vídeos das próprias URLs dele para republicação.</p>
+
+    <h3 style="margin-top:24px;">IA — Sugestão de hashtags</h3>
+    <p>Dentro do modal de agendamento, ao lado do label "1º comentário", há um botão <strong>✨ Sugerir hashtags</strong>. Click → Claude Haiku analisa a legenda e gera 10 hashtags relevantes (mix amplas + nicho jurídico + tema-específicas). As hashtags são adicionadas ao final do campo "1º comentário" (boa prática para manter a legenda limpa). Editar livremente depois.</p>
+
+    <h3 style="margin-top:24px;">IA — Sugestão de melhor horário</h3>
+    <p>Sobre os campos data/hora do modal, o botão <strong>🕐 Melhor horário</strong> mostra inline os top 5 horários do histórico (últimos 90 dias) ordenados por engajamento médio (curtidas + 2×comentários + reach/10). Cada chip mostra o dia da semana + hora + score. <strong>Click no chip</strong> aplica esse horário e ajusta a data automaticamente para a próxima ocorrência desse dia da semana.</p>
+
+    <h3 style="margin-top:24px;">Stories (foto ou vídeo, 24h)</h3>
+    <p>Opção <strong>Stories</strong> habilitada no modal. Aceita foto (JPEG/PNG ≤8MB) ou vídeo (MP4/MOV ≤100MB e ≤60s). Aspect ratio ideal 9:16 (vertical). Foto publica imediato; vídeo passa pelo mesmo polling assíncrono do Reel (status fica "Publicando" até ~4min). Stories ficam visíveis por 24 horas no perfil; depois disso somem (comportamento padrão da API).</p>
+
+    <h3 style="margin-top:24px;">Reel (vídeo)</h3>
+    <p>O modal aceita "Reel (vídeo MP4)" como formato. Publicação é <strong>assíncrona</strong> — após o tick chamar a API, o Instagram processa o vídeo (até ~4 minutos), durante os quais o badge fica em <strong>Publicando…</strong>. Limites: ≤ 1 GB, ≤ 15 minutos, MP4 H.264. Se o processamento exceder 4 minutos, o agendamento volta para SCHEDULED para próximo retry (ou marca FAILED após 3 tentativas).</p>
+
+    <h3 style="margin-top:24px;">Upload de mídia direto e Biblioteca (Cloudflare R2)</h3>
+    <p>Ao lado de cada campo de URL no modal de agendamento, o botão <strong>📤</strong> abre o seletor de arquivos do computador. O arquivo escolhido é enviado diretamente para o bucket R2 da Cloudflare e a URL pública é preenchida automaticamente no campo. Não precisa mais subir manualmente em Drive/Dropbox.</p>
+    <p>Abaixo dos campos de URL, o botão <strong>📚 Biblioteca</strong> abre uma grade com as mídias enviadas anteriormente (organizadas por mês). Click numa thumbnail para reutilizar — útil quando o mesmo gráfico vai em vários posts ou para reciclar conteúdo de alta performance.</p>
+    <p>Limites validados pelo backend: JPEG/PNG ≤ 8 MB, MP4/MOV ≤ 1 GB.</p>
+
+    <h3 style="margin-top:24px;">Editar ou cancelar</h3>
+    <p>Quando o status é Rascunho ou Agendado, aparece um botão <strong>Editar</strong> ao lado do badge — abre o mesmo modal com todos os campos preenchidos. Para cancelar, abrir o modal de edição e clicar no botão vermelho <strong>Cancelar agendamento</strong>. Após Publicando ou Publicado, não é possível editar ou cancelar (Instagram não permite cancelar publicação via API — para remover, ir direto no app/site do Instagram e excluir manualmente).</p>
+
+    <h3 style="margin-top:24px;">Quando algo dá errado</h3>
+    <p>O sistema tenta publicar até <strong>3 vezes</strong> antes de marcar como Falhou. A cada tentativa, a mensagem de erro é gravada (visível ao passar o mouse no badge). Quando atinge o limite, dispara automaticamente:</p>
+    <ul>
+      <li><strong>E-mail</strong> para os endereços em <code>ADMIN_ALERT_EMAILS</code> (Paulo + Amanda)</li>
+      <li><strong>Telegram</strong> via bot <code>AMR Alerts Bot</code></li>
+    </ul>
+    <p>Erros mais comuns e como resolver:</p>
+    <table class="no-break">
+      <tr><th>Erro</th><th>O que fazer</th></tr>
+      <tr><td>Mídia não acessível</td><td>Conferir permissão "Qualquer pessoa com o link"; testar URL em janela anônima.</td></tr>
+      <tr><td>Formato não suportado</td><td>Converter para JPEG ou PNG sem transparência (Squoosh, TinyPNG).</td></tr>
+      <tr><td>Dimensões fora do aceito</td><td>Reenquadrar para 1:1 (quadrado) ou 4:5 (vertical).</td></tr>
+      <tr><td>Permission error / Invalid scope</td><td>Token expirou ou perdeu o escopo de publicação — falar com o suporte.</td></tr>
+    </table>
+
+    <div class="callout callout-blue no-break" style="margin-top:24px;">
+      <p><strong>Manual completo desta funcionalidade</strong> (10 seções, com troubleshooting expandido e tabelas detalhadas): <code>Depósito/Manual — Agendamento e Publicação Instagram.html</code></p>
+    </div>
 
     <div class="changelog">
       <h3>Histórico de versões</h3>
+      <div class="changelog-entry">
+        <div class="changelog-version">1.4</div>
+        <div class="changelog-date">Abril 2026</div>
+        <div class="changelog-desc">
+          <strong>Indicadores de qualidade nos KPIs da Visão Geral:</strong> cada card (Gasto, Leads, CPL, Impressões, Cliques, CTR) ganhou um badge colorido (verde/cinza/vermelho) com setinha (↑/→/↓) e variação percentual vs período anterior. CTR usa benchmark fixo (≥3% bom, 1.5-3% neutro, abaixo é atenção); demais usam delta ±5% (lower-better para Gasto e CPL). + <strong>Bug fix:</strong> alerta "Última coleta há Xh" perpétuo — corrigido mismatch de jobName ads_collection_daily → ads_collection. + <strong>Stories habilitado</strong> (extra): opção "Stories (foto ou vídeo, 24h)" no modal de agendamento. Foto síncrona, vídeo com polling. + <strong>Fase 3 — Upload de mídia direto via Cloudflare R2:</strong> botão <strong>📤</strong> ao lado de cada campo URL no modal de agendamento (envia arquivo do computador direto para o R2 e preenche a URL automaticamente). Botão <strong>📚 Biblioteca</strong> abre grid das mídias enviadas anteriormente — click reutiliza. Backend: endpoints <code>/api/media/*</code> (upload, list, delete) com validação por tipo (JPEG/PNG ≤8MB, MP4/MOV ≤1GB). <strong>Acaba a dependência de Drive/Dropbox</strong> — tudo no painel. Pendente apenas Paulo configurar bucket + API token + env vars no Render.
+        </div>
+      </div>
+      <div class="changelog-entry">
+        <div class="changelog-version">1.3</div>
+        <div class="changelog-date">Abril 2026</div>
+        <div class="changelog-desc">
+          <strong>Fase 2 do Agendamento Instagram completa:</strong> (1) <strong>Reciclagem</strong> — botão 🔄 na sub-aba Conteúdo re-abre o modal de agendamento com legenda e formato pré-preenchidos do post original; (2) <strong>IA sugere hashtags</strong> — botão ✨ no modal usa Claude Haiku para gerar 10 hashtags relevantes com base na legenda; (3) <strong>IA sugere melhor horário</strong> — botão 🕐 mostra os top horários do histórico (engajamento médio dos últimos 90 dias), click aplica; (4) <strong>Suporte a Reel</strong> — opção "Reel (vídeo MP4)" no modal, publicação assíncrona com polling do status_code (timeout 4min). Stories ainda em Fase 2+.
+        </div>
+      </div>
+      <div class="changelog-entry">
+        <div class="changelog-version">1.2</div>
+        <div class="changelog-date">Abril 2026</div>
+        <div class="changelog-desc">
+          <strong>Agendamento e Publicação Instagram (Fase 1 — MVP + Calendário):</strong> ciclo editorial fecha dentro do painel — sugestão da IA → agendamento (botão "📅 Agendar" na sub-aba Sugestão de Conteúdo) → publicador automático tick a cada 5min → post ao vivo → sugestão marcada como Feito automaticamente. Suporte a Foto e Carrossel (2-10 imagens). Primeiro comentário opcional. Gate de segurança <code>IG_PUBLISH_ENABLED</code>. Substitui o mLabs. Inclui também a 3ª sub-aba <strong>Calendário</strong> (grade mensal visual com todos os agendamentos como cards coloridos por status — primeiro item da Fase 2 entregue).
+        </div>
+      </div>
       <div class="changelog-entry">
         <div class="changelog-version">1.1</div>
         <div class="changelog-date">Abril 2026</div>
@@ -1213,7 +1391,7 @@
 <div class="footer">
   <div class="footer-brand"><span class="dot"></span>AMR Ads Control</div>
   <div class="footer-by">Desenvolvido pela <strong style="color:rgba(255,255,255,0.65);">Addere On</strong> · Produto de gestão digital para escritórios jurídicos</div>
-  <div class="footer-version">Suporte técnico: paulosramalho@gmail.com · Versão 1.1 — Abril 2026</div>
+  <div class="footer-version">Suporte técnico: paulosramalho@gmail.com · Versão 1.4 — Abril 2026</div>
 </div>
 
 </div><!-- /doc -->
