@@ -33,6 +33,7 @@ import {
 } from "./jobs/postPublisherScheduler.js";
 import { sendAdminAlert } from "./lib/adminNotify.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
+import { ANTHROPIC_MODEL, createAnthropicClient, createAnthropicMessage } from "./lib/anthropicClient.js";
 import multer from "multer";
 import { uploadBuffer, listObjects, deleteObject, isR2Configured } from "./lib/r2.js";
 import { reporter, COCKPIT_AGENTS } from "./lib/cockpit.js";
@@ -1083,10 +1084,9 @@ app.post("/api/hashtags/suggest", requireAuth, async (req, res) => {
     if (!caption?.trim()) return res.status(400).json({ ok: false, message: "caption obrigatória" });
     if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ ok: false, message: "ANTHROPIC_API_KEY não configurada" });
 
-    const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const message = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const client = createAnthropicClient();
+    const message = await createAnthropicMessage(client, {
+      model: ANTHROPIC_MODEL,
       max_tokens: 400,
       system: "Você é especialista em marketing jurídico brasileiro para Instagram. Gere hashtags relevantes em português, sem emojis e sem texto explicativo.",
       messages: [{

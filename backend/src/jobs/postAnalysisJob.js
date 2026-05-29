@@ -1,12 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "../lib/prisma.js";
+import { ANTHROPIC_MODEL, createAnthropicClient, createAnthropicMessage } from "../lib/anthropicClient.js";
 
 const ACTIONS = ["INVEST", "REDIRECT", "REMOVE", "MONITOR", "MAINTAIN"];
-
-function getClient() {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return key ? new Anthropic({ apiKey: key }) : null;
-}
 
 async function analyzePost(client, post) {
   const engagementRate = post.reach && post.reach > 0
@@ -34,8 +29,8 @@ Retorne SOMENTE JSON válido:
 {"action":"INVEST"|"REDIRECT"|"REMOVE"|"MONITOR"|"MAINTAIN","score":<1-10>,"reasoning":"<máx 120 chars em português>","suggestion":"<instrução concreta para este post específico, máx 160 chars>"}`;
 
 
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const response = await createAnthropicMessage(client, {
+    model: ANTHROPIC_MODEL,
     max_tokens: 300,
     messages: [{ role: "user", content: prompt }],
   });
@@ -51,7 +46,7 @@ Retorne SOMENTE JSON válido:
 }
 
 export async function runPostAnalysisJob({ triggeredBy = "manual", forceReanalyze = false } = {}) {
-  const client = getClient();
+  const client = createAnthropicClient();
   if (!client) return { ok: false, reason: "ANTHROPIC_API_KEY não configurada" };
 
   const job = await prisma.jobExecution.create({

@@ -1,16 +1,11 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "../lib/prisma.js";
+import { ANTHROPIC_MODEL, createAnthropicClient, createAnthropicMessage } from "../lib/anthropicClient.js";
 
 const MIN_BOOST_BRL = 30;            // piso Meta para boost
 const MAX_PER_POST_PCT = 0.25;       // teto: 25% do saldo restante por post
 const LOOKBACK_DAYS_POSTS = 14;      // janela de posts elegíveis (antes do orgânico saturar)
 const LOOKBACK_DAYS_ADS = 30;        // janela para CPL médio
 const MAX_SUGGESTIONS = 4;           // até 4 boosts por execução
-
-function getClient() {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return key ? new Anthropic({ apiKey: key }) : null;
-}
 
 function currentMonth() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -24,7 +19,7 @@ function currentMonth() {
 }
 
 export async function runBoostSuggestionsJob({ triggeredBy = "manual" } = {}) {
-  const client = getClient();
+  const client = createAnthropicClient();
   if (!client) return { ok: false, reason: "ANTHROPIC_API_KEY não configurada" };
 
   const job = await prisma.jobExecution.create({
@@ -132,8 +127,8 @@ Retorne SOMENTE um array JSON válido, ranqueado por prioridade:
   ...
 ]`;
 
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
+    const response = await createAnthropicMessage(client, {
+      model: ANTHROPIC_MODEL,
       max_tokens: 1000,
       messages: [{ role: "user", content: prompt }],
     });

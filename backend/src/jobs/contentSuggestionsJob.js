@@ -1,15 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "../lib/prisma.js";
+import { ANTHROPIC_MODEL, createAnthropicClient, createAnthropicMessage } from "../lib/anthropicClient.js";
 
 const FORMATS = ["POST", "CAROUSEL", "STORIES", "REEL"];
 
-function getClient() {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return key ? new Anthropic({ apiKey: key }) : null;
-}
-
 export async function runContentSuggestionsJob({ triggeredBy = "manual" } = {}) {
-  const client = getClient();
+  const client = createAnthropicClient();
   if (!client) return { ok: false, reason: "ANTHROPIC_API_KEY não configurada" };
   const job = await prisma.jobExecution.create({
     data: { jobName: "content_suggestions", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
@@ -51,8 +46,8 @@ Retorne SOMENTE um array JSON válido:
   ...
 ]`;
 
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const response = await createAnthropicMessage(client, {
+    model: ANTHROPIC_MODEL,
     max_tokens: 1200,
     messages: [{ role: "user", content: prompt }],
   });
