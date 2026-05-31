@@ -1505,6 +1505,32 @@ function AgentsTab({ agents, onRun, running }) {
     return next.toLocaleString("pt-BR", { timeZone: "America/Belem", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   }
 
+  function overdueMs(jobName, lastAt) {
+    const sched = AGENT_SCHEDULE[jobName];
+    if (!sched || sched.type === "continuous") return 0;
+    const now = new Date();
+    const todayUtc = now.toISOString().slice(0, 10);
+    let lastSched = new Date(`${todayUtc}T${String(sched.utcHour).padStart(2, "0")}:00:00Z`);
+    if (now < lastSched) lastSched = new Date(lastSched.getTime() - 86_400_000);
+    if (lastAt && new Date(lastAt) >= lastSched) return 0;
+    return now - lastSched;
+  }
+
+  function overdueStyle(ms) {
+    if (ms <= 0) return null;
+    const h = ms / 3_600_000;
+    if (h < 1)  return { bg: "#fefce8", color: "#ca8a04" }; // amarelo — < 1h
+    if (h < 6)  return { bg: "#fff7ed", color: "#ea580c" }; // laranja — 1–6h
+    return              { bg: "#fef2f2", color: "#dc2626" }; // vermelho — > 6h
+  }
+
+  function overdueLabel(ms) {
+    if (ms <= 0) return null;
+    const h = ms / 3_600_000;
+    const text = h < 1 ? `${Math.round(ms / 60_000)} min` : `${Math.round(h)}h`;
+    return text;
+  }
+
   return (
     <div className="leads-tab">
       <div className="leads-header">
@@ -1528,8 +1554,11 @@ function AgentsTab({ agents, onRun, running }) {
               const lastAt = a.lastRun?.finishedAt || a.lastRun?.startedAt || null;
               const hasEndpoint = !!AGENT_JOB_ENDPOINTS[a.jobName];
               const isRunning = running === a.jobName;
+              const od = overdueMs(a.jobName, lastAt);
+              const ods = overdueStyle(od);
+              const odText = overdueLabel(od);
               return (
-                <tr key={a.jobName}>
+                <tr key={a.jobName} style={ods ? { background: ods.bg } : undefined}>
                   <td className="camp-name">{a.label}</td>
                   <td style={{ fontSize: 12, color: "#475569", maxWidth: 320 }}>{a.description}</td>
                   <td>
@@ -1549,7 +1578,14 @@ function AgentsTab({ agents, onRun, running }) {
                     )}
                   </td>
                   <td style={{ fontSize: 12, color: "#64748b" }}>{fmtDateTime(lastAt)}</td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{nextRun(a.jobName)}</td>
+                  <td style={{ fontSize: 12, color: "#64748b" }}>
+                    {nextRun(a.jobName)}
+                    {odText && (
+                      <div style={{ fontSize: 11, fontWeight: 600, color: ods.color, marginTop: 2 }}>
+                        ▲ {odText} de atraso
+                      </div>
+                    )}
+                  </td>
                   <td>
                     {hasEndpoint && (
                       <button
