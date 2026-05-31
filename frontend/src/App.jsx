@@ -1649,7 +1649,7 @@ function LoginScreen({ onLogin }) {
       <div className="login-box">
         <div className="login-brand">
           <span className="brand-dot" />
-          Amanda Ramalho Ads Control
+          Amanda Ramalho Ads Control<em style={{ fontStyle: "italic", fontSize: "0.65em", fontWeight: 400, marginLeft: 7, opacity: 0.55, letterSpacing: "0.02em" }}>by Addere</em>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <label className="form-label">Senha de acesso</label>
@@ -1877,7 +1877,7 @@ export default function App() {
       <header className="dash-header">
         <div className="dash-brand">
           <span className="brand-dot" />
-          Amanda Ramalho Ads Control
+          Amanda Ramalho Ads Control<em style={{ fontStyle: "italic", fontSize: "0.65em", fontWeight: 400, marginLeft: 7, opacity: 0.55, letterSpacing: "0.02em" }}>by Addere</em>
         </div>
         <div className="dash-controls">
           <div className="period-tabs">
