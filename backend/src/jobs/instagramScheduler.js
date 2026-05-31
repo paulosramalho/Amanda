@@ -2,6 +2,7 @@ import { runInstagramCollectionJob } from "./instagramCollectionJob.js";
 import { runPostAnalysisJob } from "./postAnalysisJob.js";
 import { runContentSuggestionsJob } from "./contentSuggestionsJob.js";
 import { runTrendingSuggestionsJob } from "./trendingSuggestionsJob.js";
+import { runBoostSuggestionsJob } from "./boostSuggestionsJob.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "../lib/instagramNotify.js";
 import { sendAdminAlert } from "../lib/adminNotify.js";
 import { prisma } from "../lib/prisma.js";
@@ -70,7 +71,7 @@ async function runFullCycle({ triggeredBy = "scheduler" } = {}) {
     console.error("[instagram-scheduler] Content suggestions failed:", e.message);
   }
 
-  // 4. Sugestões de tendência (varrendo portais jurídicos)
+  // 4. Sugestões de tendência (varrendo portais jurídicos — fontes externas)
   try {
     const trend = await runTrendingSuggestionsJob({ triggeredBy });
     console.log("[instagram-scheduler] Trending suggestions:", trend.created ?? 0, "from", (trend.sources || []).join(", "));
@@ -78,7 +79,15 @@ async function runFullCycle({ triggeredBy = "scheduler" } = {}) {
     console.error("[instagram-scheduler] Trending suggestions failed:", e.message);
   }
 
-  // 4. Busca posts INVEST ou REMOVE para notificar
+  // 5. Sugestões de impulsionamento (boost)
+  try {
+    const boost = await runBoostSuggestionsJob({ triggeredBy });
+    console.log("[instagram-scheduler] Boost suggestions:", boost.created ?? 0);
+  } catch (e) {
+    console.error("[instagram-scheduler] Boost suggestions failed:", e.message);
+  }
+
+  // 6. Busca posts INVEST ou REMOVE para notificar
   const notifyJob = await prisma.jobExecution.create({
     data: { jobName: "instagram_notify", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
   });
