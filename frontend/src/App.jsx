@@ -1649,7 +1649,10 @@ function LoginScreen({ onLogin }) {
       <div className="login-box">
         <div className="login-brand">
           <span className="brand-dot" />
-          Amanda Ramalho Ads Control<em style={{ fontStyle: "italic", fontSize: "0.65em", fontWeight: 400, marginLeft: 7, opacity: 0.55, letterSpacing: "0.02em" }}>by Addere</em>
+          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <span>Amanda Ramalho Ads Control</span>
+            <em style={{ fontStyle: "italic", textTransform: "none", fontSize: "0.62em", fontWeight: 400, opacity: 0.6, letterSpacing: "0.03em" }}>By Addere</em>
+          </span>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <label className="form-label">Senha de acesso</label>
@@ -1877,7 +1880,10 @@ export default function App() {
       <header className="dash-header">
         <div className="dash-brand">
           <span className="brand-dot" />
-          Amanda Ramalho Ads Control<em style={{ fontStyle: "italic", fontSize: "0.65em", fontWeight: 400, marginLeft: 7, opacity: 0.55, letterSpacing: "0.02em" }}>by Addere</em>
+          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <span>Amanda Ramalho Ads Control</span>
+            <em style={{ fontStyle: "italic", textTransform: "none", fontSize: "0.62em", fontWeight: 400, opacity: 0.6, letterSpacing: "0.03em" }}>By Addere</em>
+          </span>
         </div>
         <div className="dash-controls">
           <div className="period-tabs">
