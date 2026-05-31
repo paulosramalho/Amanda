@@ -1466,6 +1466,17 @@ function InstagramTab({ posts, suggestions, scheduledPosts, scheduledBySuggestio
 const STATUS_AGENT_COLOR = { SUCCESS: "#059669", RUNNING: "#2563eb", FAILED: "#dc2626", PENDING: "#d97706" };
 const STATUS_AGENT_LABEL = { SUCCESS: "OK", RUNNING: "Rodando", FAILED: "Erro", PENDING: "Pendente" };
 
+const AGENT_SCHEDULE = {
+  instagram_collection: { type: "daily", utcHour: 4 },
+  post_analysis:        { type: "daily", utcHour: 4 },
+  content_suggestions:  { type: "daily", utcHour: 4 },
+  trending_suggestions: { type: "daily", utcHour: 4 },
+  boost_suggestions:    { type: "daily", utcHour: 4 },
+  instagram_notify:     { type: "daily", utcHour: 4 },
+  ads_collection:       { type: "daily", utcHour: 15 },
+  post_publisher:       { type: "continuous" },
+};
+
 const AGENT_JOB_ENDPOINTS = {
   instagram_collection: "/jobs/instagram-collection/run",
   post_analysis: "/jobs/post-analysis/run",
@@ -1483,6 +1494,17 @@ function AgentsTab({ agents, onRun, running }) {
     return new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Belem", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
+  function nextRun(jobName) {
+    const sched = AGENT_SCHEDULE[jobName];
+    if (!sched) return "—";
+    if (sched.type === "continuous") return "Contínuo (5 min)";
+    const now = new Date();
+    const todayUtc = now.toISOString().slice(0, 10);
+    let next = new Date(`${todayUtc}T${String(sched.utcHour).padStart(2, "0")}:00:00Z`);
+    if (now >= next) next = new Date(next.getTime() + 86_400_000);
+    return next.toLocaleString("pt-BR", { timeZone: "America/Belem", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
   return (
     <div className="leads-tab">
       <div className="leads-header">
@@ -1496,6 +1518,7 @@ function AgentsTab({ agents, onRun, running }) {
               <th>Função</th>
               <th>Status</th>
               <th>Última execução</th>
+              <th>Próxima execução</th>
               <th></th>
             </tr>
           </thead>
@@ -1526,6 +1549,7 @@ function AgentsTab({ agents, onRun, running }) {
                     )}
                   </td>
                   <td style={{ fontSize: 12, color: "#64748b" }}>{fmtDateTime(lastAt)}</td>
+                  <td style={{ fontSize: 12, color: "#64748b" }}>{nextRun(a.jobName)}</td>
                   <td>
                     {hasEndpoint && (
                       <button
