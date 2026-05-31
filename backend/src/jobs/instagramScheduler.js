@@ -139,6 +139,22 @@ async function tick() {
   }
 }
 
+async function catchUpIfNeeded() {
+  const now = new Date();
+  if (now.getUTCHours() < state.runUtcHour) return;
+
+  const todayBRT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Belem" }).format(now);
+  const dayStart = new Date(`${todayBRT}T03:00:00Z`);
+
+  const ran = await prisma.jobExecution.findFirst({
+    where: { jobName: "instagram_collection", createdAt: { gte: dayStart }, status: { in: ["SUCCESS", "FAILED"] } },
+  });
+  if (ran) return;
+
+  console.log("[instagram-scheduler] Catch-up: ciclo de hoje não encontrado — executando agora");
+  runFullCycle({ triggeredBy: "catchup" }).catch((e) => console.error("[instagram-scheduler] Catch-up failed:", e.message));
+}
+
 export function startInstagramScheduler() {
   const enabled = toBoolean(process.env.INSTAGRAM_SCHEDULER_ENABLED, false);
   state.runUtcHour = Math.min(23, Math.max(0, toInteger(process.env.INSTAGRAM_RUN_UTC_HOUR, DEFAULT_RUN_UTC_HOUR)));
@@ -149,6 +165,7 @@ export function startInstagramScheduler() {
   if (timer) clearInterval(timer);
   timer = setInterval(() => { void tick(); }, state.tickMs);
   state.started = true;
+  void catchUpIfNeeded();
   return { ...state, enabled };
 }
 

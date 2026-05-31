@@ -1,6 +1,7 @@
 import { runAdsCollectionJob } from "./adsCollectionJob.js";
 import { runAnomalyDetection } from "./anomalyDetector.js";
 import { reporter } from "../lib/cockpit.js";
+import { prisma } from "../lib/prisma.js";
 
 const DEFAULT_TICK_MS = 60_000;
 const DEFAULT_RUN_UTC_HOUR = 15;
@@ -61,6 +62,24 @@ async function tickScheduler() {
   }
 }
 
+async function catchUpIfNeeded() {
+  const now = new Date();
+  if (now.getUTCHours() < schedulerState.runUtcHour) return;
+
+  const todayBRT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Belem" }).format(now);
+  const dayStart = new Date(`${todayBRT}T03:00:00Z`);
+
+  const ran = await prisma.jobExecution.findFirst({
+    where: { jobName: "ads_collection", createdAt: { gte: dayStart }, status: { in: ["SUCCESS", "FAILED"] } },
+  });
+  if (ran) return;
+
+  console.log("[ads-scheduler] Catch-up: coleta de hoje não encontrada — executando agora");
+  runAdsCollectionJob({ triggeredBy: "catchup" })
+    .then(() => runAnomalyDetection())
+    .catch((e) => console.error("[ads-scheduler] Catch-up failed:", e.message));
+}
+
 export function startAdsScheduler() {
   const enabled = toBoolean(process.env.ADS_COLLECTION_SCHEDULER_ENABLED, false);
 
@@ -88,7 +107,7 @@ export function startAdsScheduler() {
   }, schedulerState.tickMs);
 
   schedulerState.started = true;
-  void tickScheduler();
+  void catchUpIfNeeded();
 
   return { ...schedulerState, enabled };
 }
