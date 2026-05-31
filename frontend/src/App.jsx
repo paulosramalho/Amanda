@@ -1888,19 +1888,22 @@ export default function App() {
         <div className="dash-controls">
           <div className="period-tabs">
             {[
-              { key: "overview", label: "Visão Geral" },
-              { key: "weekly", label: "Relatório Semanal" },
-              { key: "leads", label: `Leads ${leads.length > 0 ? `(${leads.length})` : ""}` },
-              { key: "instagram", label: `Conteúdo ${igPosts.length > 0 ? `(${igPosts.length})` : ""}` },
-              { key: "agents", label: "Agentes" },
-            ].map(({ key, label }) => (
+              { key: "overview",  l1: "Visão",     l2: "Geral" },
+              { key: "weekly",    l1: "Relatório",  l2: "Semanal" },
+              { key: "leads",     l1: "Leads",      l2: leads.length > 0 ? `(${leads.length})` : null },
+              { key: "instagram", l1: "Conteúdo",   l2: igPosts.length > 0 ? `(${igPosts.length})` : null },
+              { key: "agents",    l1: "Agentes",    l2: null },
+            ].map(({ key, l1, l2 }) => (
               <button
                 key={key}
                 className={`period-tab${tab === key ? " active" : ""}`}
                 onClick={() => setTab(key)}
                 type="button"
               >
-                {label}
+                <span className="tab-label-2l">
+                  <span>{l1}</span>
+                  {l2 && <span className="tab-label-sub">{l2}</span>}
+                </span>
               </button>
             ))}
           </div>
