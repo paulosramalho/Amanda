@@ -36,7 +36,6 @@ import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNot
 import { ANTHROPIC_MODEL, createAnthropicClient, createAnthropicMessage } from "./lib/anthropicClient.js";
 import multer from "multer";
 import { uploadBuffer, listObjects, deleteObject, isR2Configured } from "./lib/r2.js";
-import { reporter, COCKPIT_AGENTS } from "./lib/cockpit.js";
 
 const _JWT_SECRET = process.env.JWT_SECRET;
 if (!_JWT_SECRET) throw new Error("JWT_SECRET env var obrigatória — configure no Render");
@@ -1173,7 +1172,6 @@ app.post("/jobs/instagram-notify/test", requireAuth, async (req, res) => {
   }
 });
 
-await reporter.registerAgents(COCKPIT_AGENTS).catch((e) => console.warn("[cockpit] register falhou:", e?.message || e));
 
 const schedulerState = startAdsScheduler();
 console.log("Ads scheduler state:", schedulerState);

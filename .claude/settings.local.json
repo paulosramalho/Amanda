@@ -54,7 +54,17 @@
       "Bash(grep *)",
       "Bash(DATABASE_URL=\"postgresql://x:y@host/db\" npx prisma validate)",
       "Bash(DATABASE_URL=\"postgresql://x:y@host/db\" npx prisma generate)",
-      "Bash(xargs sed *)"
+      "Bash(xargs sed *)",
+      "PowerShell(git *)",
+      "PowerShell(New-Item *)",
+      "PowerShell(Get-Process *)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":3000 \\\\|:5173 \")",
+      "Bash(findstr LISTENING)",
+      "Bash(Start-Process powershell *)",
+      "PowerShell(Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"cd 'C:\\\\AddereAdsControl\\\\frontend'; npm run dev\" -WindowStyle Normal)",
+      "Bash(Get-ChildItem C:\\\\AddereAdsControl\\\\backend\\\\src\\\\jobs -Recurse -Name)",
+      "Bash(Sort-Object)"
     ]
   }
 }

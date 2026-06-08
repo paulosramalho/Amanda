@@ -6,7 +6,6 @@ import { runBoostSuggestionsJob } from "./boostSuggestionsJob.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "../lib/instagramNotify.js";
 import { sendAdminAlert } from "../lib/adminNotify.js";
 import { prisma } from "../lib/prisma.js";
-import { reporter } from "../lib/cockpit.js";
 
 const DEFAULT_RUN_UTC_HOUR = 4;  // 01:00 BRT
 const DEFAULT_TICK_MS = 60_000;
@@ -142,7 +141,7 @@ async function tick() {
   state.lastRunKey = key;
 
   try {
-    await reporter.run("instagram_full_cycle", () => runFullCycle());
+    await runFullCycle();
   } catch (error) {
     console.error("[instagram-scheduler] Cycle failed:", error?.message || error);
   }

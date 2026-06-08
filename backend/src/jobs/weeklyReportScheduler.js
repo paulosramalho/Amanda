@@ -1,6 +1,5 @@
 import { generateWeeklyReport } from "./weeklyReportJob.js";
 import { sendWeeklyReportEmail } from "../lib/notify.js";
-import { reporter } from "../lib/cockpit.js";
 import { prisma } from "../lib/prisma.js";
 
 const TICK_MS = 60_000;
@@ -27,7 +26,6 @@ async function tickScheduler() {
   lastRunKey = runKey;
 
   try {
-    await reporter.run("weekly_report", async () => {
       const result = await generateWeeklyReport({ force: false });
       console.log("[weekly-report-scheduler] Generated:", result);
       if (result.ok) {
@@ -35,7 +33,6 @@ async function tickScheduler() {
         const report = await prisma.weeklyReport.findUnique({ where: { id: result.reportId } });
         if (report) await sendWeeklyReportEmail(report);
       }
-    });
   } catch (error) {
     console.error("[weekly-report-scheduler] Failed:", error);
   }

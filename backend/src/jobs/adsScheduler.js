@@ -1,6 +1,5 @@
 import { runAdsCollectionJob } from "./adsCollectionJob.js";
 import { runAnomalyDetection } from "./anomalyDetector.js";
-import { reporter } from "../lib/cockpit.js";
 import { prisma } from "../lib/prisma.js";
 
 const DEFAULT_TICK_MS = 60_000;
@@ -53,10 +52,8 @@ async function tickScheduler() {
   schedulerState.lastRunKey = runKey;
 
   try {
-    await reporter.run("ads_collection", async () => {
       await runAdsCollectionJob({ triggeredBy: "scheduler" });
       await runAnomalyDetection();
-    });
   } catch (error) {
     console.error("[ads-scheduler] Daily run failed:", error);
   }
