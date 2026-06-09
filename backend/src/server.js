@@ -67,7 +67,7 @@ function requireAuth(req, res, next) {
   const token = req.header("authorization")?.replace("Bearer ", "");
   if (!token) { res.status(401).json({ ok: false, message: "Token ausente" }); return; }
   try {
-    jwt.verify(token, _JWT_SECRET);
+    jwt.verify(token, _JWT_SECRET, { algorithms: ["HS256"] });
     next();
   } catch {
     res.status(401).json({ ok: false, message: "Token inválido ou expirado" });
@@ -174,7 +174,7 @@ app.post("/jobs/ads-collection/google-auth-check", handleGoogleAuthCheck);
 
 app.post("/jobs/ads-collection/run", async (req, res) => {
   const jwtHeader = req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : null;
-  const isJwt = jwtHeader ? (() => { try { jwt.verify(jwtHeader, _JWT_SECRET); return true; } catch { return false; } })() : false;
+  const isJwt = jwtHeader ? (() => { try { jwt.verify(jwtHeader, _JWT_SECRET, { algorithms: ["HS256"] }); return true; } catch { return false; } })() : false;
   if (!isJwt && !isJobRunnerAuthorized(req)) {
     res.status(401).json({ ok: false, message: "Unauthorized job execution" });
     return;
