@@ -1,0 +1,172 @@
+# Auditoria de Segurança — AMR/Addere
+
+> **Act like a senior security engineer auditing a production application.**
+> Seu papel é identificar vulnerabilidades reais, com confiança ≥ 0.80, que possam ser exploradas por um atacante externo ou por um usuário autenticado mal-intencionado. Não é uma revisão teórica — cada achado deve ter cenário de ataque concreto, fix de código pronto e recomendação production-grade.
+
+## Escopo obrigatório de investigação
+
+| Categoria | O que verificar |
+|---|---|
+| **Vulnerabilidades de segurança** | Lógica incorreta, controles ausentes, bypasses |
+| **Falhas de autenticação** | JWT, sessão, 2FA, reset de senha, tokens temporários |
+| **Fraquezas de API** | CORS, rate limiting, endpoints sem auth, IDOR, excesso de dados na resposta |
+| **Injeção** | SQL (via Prisma raw), command injection, path traversal, **injeção em nome de arquivo** (filename no upload/download), template injection, prompt injection em bots IA |
+| **Exposição de dados sensíveis** | Senhas em logs/chats, secrets em respostas, PII sem máscara, debug info em prod |
+| **Riscos de infraestrutura** | Portas expostas desnecessariamente, admin routes sem proteção, headers HTTP de segurança ausentes (Helmet), HTTPS forçado, variáveis de ambiente vazadas |
+
+**Entregáveis obrigatórios:**
+1. Relatório de vulnerabilidades com severidade e confiança
+2. Cenário de ataque realista para cada achado
+3. Fix de implementação segura (código pronto)
+4. Recomendações production-grade
+5. Plano de ação em `Depósito/` + evento na agenda
+
+## Quando invocar
+
+| Gatilho | Contexto |
+|---|---|
+| Criação de projeto novo | Antes do primeiro deploy |
+| Nova feature com superfície de ataque | Bot WA/IG, webhook externo, upload de arquivo, nova rota de auth, integração bancária |
+| Sessão periódica (~30 dias desde a última) | Data da última auditoria em CLAUDE.md do projeto |
+| CVE crítico divulgado no stack | jsonwebtoken, express, prisma, multer, @anthropic-sdk |
+
+---
+
+## Fase 1 — Pesquisa de CVEs no stack
+
+Queries a executar via WebSearch:
+- "jsonwebtoken CVE 2025 2026 site:nvd.nist.gov OR site:github.com/advisories"
+- "express.js security vulnerability 2025 2026"
+- "prisma ORM CVE OR security advisory"
+- "multer file upload vulnerability 2025 2026"
+- "@anthropic-sdk prompt injection defense 2025"
+- "whatsapp webhook security bypass 2025"
+- "banco inter webhook security 2025"
+
+Registrar achados com CVSS ≥ 7.0 ou impacto direto no projeto.
+
+---
+
+## Fase 2 — Checklist de vulnerabilidades
+
+### 🔴 CRÍTICO — Fraude financeira direta
+
+**C1 — Webhook Inter sem autenticação (fake payment injection)**
+- Buscar: webhooksInter.js
+- Padrão problemático: enforcementMode === "observation" ou tabela ausente
+- Padrão seguro: enforcementMode === "enforce" + allowlist CIDRs
+- Cenário: POST /api/webhooks/inter/boleto com { situacao: "PAGO" } → parcela confirmada falsa
+- Confiança: 0.90 se mode="observation"
+
+**C2 — Pix webhook sem validação de assinatura**
+- Buscar: rotas de pix recebido
+- Verificar: validação HMAC ou mTLS na rota de recebimento Pix
+
+### 🟠 ALTO — Acesso não autorizado a dados
+
+**A1 — WhatsApp webhook fail-open (sem HMAC quando WA_APP_SECRET ausente)**
+- Buscar: if (WA_APP_SECRET) { ... validação HMAC ... }
+- Padrão problemático: bloco if — se var ausente, qualquer POST aceito
+- Fix:
+  const secret = process.env.WA_APP_SECRET;
+  if (!secret) return res.sendStatus(503);
+  const sig = req.headers["x-hub-signature-256"];
+  if (!sig) return res.sendStatus(403);
+
+**A2 — Download/envio de documento sem ownership check**
+- Buscar: documentos.js → drive.files.get({ fileId: driveId })
+- Verificar: existe lookup que confirma driveId pertence ao clienteId da rota?
+- Cenário: usuário autenticado baixa docs de outros clientes
+
+**A3 — Bot WA/IG sem 3-layer injection guard**
+- Verificar: existe import de injectionGuard.js ou equivalente?
+- Verificar: INPUT_PATTERN (regex pré-modelo), MODEL_MARKER, OUTPUT_FILTER (CPF/dados)
+- Verificar: auto-ban após N tentativas HIGH
+- Padrão insuficiente: instrução no system prompt apenas
+
+### 🟠 MÉDIO — Bypass de autenticação / escalada
+
+**M1 — JWT sem restrição de algoritmo**
+- Buscar: jwt.verify(token, JWT_SECRET)
+- Padrão seguro: jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] })
+- Risco: algorithm confusion attack (alg:none, RS256 com chave pública)
+- Verificar em: lib/auth.js E routes/auth.js (2FA/reset)
+
+**M2 — Senha temporária em plaintext em canal persistente**
+- Buscar: MensagemChat.create com senha temporária no conteúdo
+- Correto: senha só no e-mail transacional, nunca em tabelas de mensagens
+
+**M3 — CORS sem validação de origin (wildcard em produção)**
+- Buscar: cors({ origin: "*" }) ou cors() sem lista de origens
+
+**M4 — Rate limiting ausente em rotas sensíveis**
+- Verificar: /api/auth/login, /api/auth/forgot-password, /api/auth/reset-password
+
+### 🟡 BAIXO — Defense-in-depth
+
+**B1 — Avatar/upload sem verificação de magic bytes**
+- Buscar: multer + mimetype check sem file-type package
+- Padrão inseguro: req.file.mimetype (declarado pelo cliente)
+- Correto: verificar magic bytes com file-type após receber o buffer
+
+**B2 — SQL via Prisma com interpolação de string**
+- Buscar: prisma.$queryRaw com ${var} sem Prisma.sql``
+
+**B3 — Secrets em logs de auditoria**
+- Buscar: console.log com req.body completo em rotas de auth
+
+**B4 — Injeção em nome de arquivo (filename injection)**
+- Buscar: Content-Disposition com nome vindo de req.params/req.body
+- Padrão problemático:
+  res.setHeader("Content-Disposition", `attachment; filename="${req.body.nome}"`)
+- Riscos: header injection (\r\n), path traversal em disco, injeção em shell
+- Padrão seguro: encodeURIComponent(nome.replace(/[^\w.\-]/g, "_"))
+
+**B5 — Riscos de infraestrutura**
+- Verificar:
+  1. Helmet.js ativo: app.use(helmet())
+  2. CORS não-wildcard: cors({ origin: ["https://..."] })
+  3. Admin routes protegidas: /api/admin/* atrás de requireAdmin
+  4. DATABASE_URL, JWT_SECRET, WA_TOKEN nunca logados
+  5. trust proxy configurado: app.set('trust proxy', 1)
+  6. Arquivos .env nunca commitados
+
+---
+
+## Formato do relatório
+
+Classificar cada achado:
+- 🔴 HIGH   — exploração direta; confiança ≥ 0.85
+- 🟠 MEDIUM — requer condição específica; confiança ≥ 0.80
+- 🟡 LOW    — defense-in-depth; confiança ≥ 0.75
+- ✅ OK     — controle confirmado funcionando
+
+Por achado reportar: Categoria | Arquivo e linha | Código problemático | Cenário de ataque | Fix (código pronto) | Confiança | Recomendação adicional
+
+Salvar plano de ação: Depósito/plano-acao-seguranca-YYYY-MM-DD.md
+Atualizar CLAUDE.md do projeto com data, severidades e próxima auditoria.
+
+---
+
+## Anti-patterns
+
+- Reportar confiança < 0.80 como vulnerabilidade confirmada
+- Auditar só server.js — rotas separadas têm mais vulnerabilidades históricas
+- Pular a pesquisa de CVEs — o stack evolui
+- Fix genérico ("adicionar validação") — todo fix deve ser código pronto substituível
+- Ignorar nome de arquivo em download/upload — filename injection é exploração real
+- Marcar "Helmet.js ausente" como OK sem verificar app.use(helmet()) explícito
+
+---
+
+## Exemplos de achados reais (referência de calibração — 09/06/2026)
+
+| Achado | Arquivo | Severidade | Confiança |
+|---|---|---|---|
+| Webhook Inter observation mode | routes/webhooksInter.js:24 | 🔴 HIGH | 0.90 |
+| WA webhook fail-open | routes/whatsapp.js:836 | 🟠 MEDIUM | 0.95 |
+| JWT sem { algorithms } | lib/auth.js:12 | 🟠 MEDIUM | 0.80 |
+| Download sem ownership | routes/documentos.js:252 | 🟠 MEDIUM | 0.85 |
+| Senha temporária no chat | routes/auth.js:265 | 🟠 MEDIUM | 0.90 |
+| Bot sem injectionGuard | ausência de import | 🟠 MEDIUM | 0.82 |
+| Avatar sem magic bytes | routes/auth.js:479 | 🟡 LOW | 0.75 |

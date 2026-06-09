@@ -1,0 +1,84 @@
+﻿# Alerta de Compactação — Preservar Estado da Sessão
+
+## Quando invocar (proativamente, sem esperar o usuário pedir)
+
+Invocar este skill quando **qualquer** dos critérios abaixo for verdadeiro:
+
+- A sessão já produziu **30+ tool calls** sem um commit/push intermediário
+- Foram lidos **10+ arquivos distintos** na sessão atual
+- Uma compactação **já ocorreu** nesta sessão (há bloco "Summary" no início)
+- A sessão dura mais de **45 minutos** de trabalho contínuo
+- Estou prestes a iniciar uma tarefa nova e complexa **sem ter fechado a anterior**
+- O usuário mencionou "continuar depois", "parar aqui", "amanhã sigo"
+
+## Sequência obrigatória
+
+### 1. Commit imediato de tudo que está pronto
+
+Para cada repo com mudanças (verificar todos os additional working dirs):
+
+```powershell
+git -C "<dir>" status --porcelain
+```
+
+- Fazer `git add` nos arquivos modificados + `git commit` + `git push`
+- Mensagem de commit deve indicar que é um "checkpoint": `chore(checkpoint): salva estado da sessão — <descrição>`
+- NÃO commitar arquivos em estado incompleto/quebrado — anotar como pendência
+
+### 2. Snapshot de sessão em memória
+
+Criar ou atualizar `memory/session_snapshot.md` com:
+
+```markdown
+---
+name: session-snapshot
+description: Estado da sessão em curso — pendências, decisões, contexto que deve sobreviver à compactação
+metadata:
+  type: project
+---
+
+## Sessão: <DATA> — <HORA>
+
+### Em andamento (não concluído)
+- [ ] <tarefa 1> — arquivo: <path>
+- [ ] <tarefa 2> — arquivo: <path>
+
+### Decisões tomadas nesta sessão (não óbvias)
+- <decisão 1>: <motivo>
+
+### Contexto crítico que pode ser perdido
+- <contexto 1>
+- <contexto 2>
+
+### Próximo passo imediato ao retomar
+<instrução clara de onde continuar>
+```
+
+### 3. Atualizar MEMORY.md
+
+Garantir que entradas relevantes da sessão estejam no índice. Se a sessão gerou insights novos sobre o projeto/usuário, gravar agora — não esperar o /finish.
+
+### 4. Avisar o usuário
+
+Reportar em **uma mensagem** concisa:
+- O que foi commitado (hash se disponível)
+- O que ficou pendente
+- Que o snapshot foi salvo
+- Sugestão de comando de retomada: "Na próxima sessão, diga: 'Retomar <contexto>'"
+
+## Anti-patterns
+
+- ❌ Invocar só quando o usuário pedir — deve ser proativo
+- ❌ Commitar arquivos quebrados só para "salvar estado"
+- ❌ Criar snapshot vago ("estava trabalhando em coisas") — deve ser acionável
+- ❌ Silenciar se não houver nada para commitar — ainda assim salvar snapshot de pendências
+
+## Limitação conhecida
+
+Claude Code não expõe contador de tokens diretamente. Use como proxy:
+- Número de arquivos lidos na sessão
+- Número de edições feitas
+- Presença de bloco "Summary" no início da conversa (indica compactação já ocorreu)
+- Tempo subjetivo de sessão (sessões longas = mais risco)
+
+**Quando em dúvida, invocar. O custo de um snapshot desnecessário é zero. O custo de contexto perdido é alto.**

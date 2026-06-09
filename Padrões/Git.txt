@@ -1,0 +1,23 @@
+﻿# Padrão: Git
+
+## Regra geral
+- Sempre fazer commit + push após qualquer alteração de código, sem perguntar.
+- Nunca usar --no-verify ou --force em main/master sem confirmação explícita.
+
+## Formato da mensagem
+- tipo(escopo): descrição
+- Exemplos:
+  feat(agenda): adiciona notificação WA ao criar evento
+  fix(boleto): corrige data de vencimento em UTC-3
+  chore(checkpoint): salva estado da sessão — implementação pix
+
+## Tipos comuns
+- feat: nova feature
+- fix: correção de bug
+- chore: manutenção, configs, checkpoints
+- refactor: refatoração sem mudança de comportamento
+- docs: documentação
+- perf: melhoria de performance
+
+## Commit de checkpoint (compactação de contexto)
+- Usar prefixo: chore(checkpoint): snapshot sessão <data> — <descrição breve>

@@ -1,0 +1,73 @@
+﻿# Ritual de fechamento de feature
+
+Quando o usuário sinalizar fim de um bloco de trabalho (palavras como "tudo certo", "documentar", "concluir", "fechar"), ou quando você concluir feature significativa por iniciativa própria, **execute este ritual sem perguntar passo a passo**.
+
+## Sequência obrigatória
+
+### 1. Inventariar o que mudou
+
+Para cada um dos diretórios de projeto conhecidos do usuário (use os additional working dirs disponíveis na sessão; tipicamente `C:\Controles-AMR`, `C:\Amanda`, `C:\Addere`, `C:\portal-pessoal`, `C:\cockpit-agentes`):
+
+```powershell
+git -C "<dir>" status --porcelain
+```
+
+Listar todos os arquivos modificados (M, A, ??) agrupados por:
+- Backend (`backend/src/**/*.js`)
+- Frontend (`frontend/src/**/*.jsx`, `*.js`, `*.css`)
+- Schema (`backend/prisma/schema.prisma`, `migrations/**`)
+- Docs (`docs/**/*.md`, `CLAUDE.md`)
+- Outros
+
+### 2. Auditoria de padrões
+
+- **Para cada arquivo backend modificado** (excluindo migrations e configs) → invocar skill `check-padroes` com o caminho.
+- **Para cada arquivo frontend modificado** → invocar skill `revisao-ui` com o caminho.
+- Aplicar correções dentro do escopo das skills sem perguntar (reforçando padrões globais — vírgula decimal, MoneyInput, Toast, etc.).
+- Se uma skill apontar violação grande que exija refator amplo, listar como dívida técnica e seguir.
+
+### 3. Documentação
+
+Avaliar a magnitude da mudança:
+
+- **Mudança significativa** (novo modelo Prisma, novo fluxo end-to-end, integração externa nova, módulo novo, alteração arquitetural): **criar ou atualizar `docs/<NOME_FEATURE>.md`** no repo do projeto. Incluir:
+  - Por que existe / qual problema resolve
+  - Pré-requisitos (env vars, credenciais externas)
+  - Fluxo end-to-end
+  - Modelo de dados afetado
+  - Endpoints (se aplicável)
+  - UI relacionada
+  - Troubleshooting dos erros mais prováveis
+- **Atualizar `CLAUDE.md` do projeto** com bloco curto referenciando o doc novo.
+- **Bug fix trivial / ajuste de UI puro / refactor sem mudança de comportamento**: NÃO criar doc.
+
+Se houver dúvida se é significativa, criar o doc — é mais barato manter um arquivo extra do que perder contexto entre sessões.
+
+### 4. Commit + push
+
+Para cada repo com mudanças:
+
+- `git add` apenas os arquivos conhecidos (não `git add -A` em diretórios com risco de envolver `.env` ou builds).
+- Mensagem em português ou inglês conforme o padrão do projeto. Formato: `tipo(escopo): descrição curta` + corpo explicando o **porquê**.
+- Inclua `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+- `git push` na sequência. Sem perguntar.
+- Se hook de pre-commit falhar, investigar a causa raiz e fazer NOVO commit (nunca `--amend` nem `--no-verify`).
+
+### 5. Validação final
+
+- Se houve mudança em algo que vai pra produção (Render/Vercel) → invocar skill `deploy-check`.
+- Se foi um projeto novo sendo integrado ao monitoramento → invocar `agregar-cockpit`.
+- Reportar ao usuário em uma mensagem final concisa: o que mudou, o que foi auditado, qual doc foi escrita/atualizada, qual o commit hash.
+
+## Memórias relevantes
+
+- Atualizar memórias `feedback_*` ou `project_*` em `~/.claude/projects/C--paulo/memory/` se a sessão produziu insights duráveis (decisão arquitetural não óbvia, padrão emergente, dívida técnica reconhecida).
+
+## Anti-pattern
+
+- ❌ Pedir confirmação de cada passo ("posso rodar check-padroes?")
+- ❌ Pular doc porque "achou pequeno" — se o usuário disse "documentar" explicitamente, criar.
+- ❌ Commitar sem rodar audit das skills relevantes.
+- ❌ Push para main de feature em curso sem o doc correspondente.
+
+Se algum passo falhar, persistir até resolver ou reportar bloqueio explícito. Não silenciar.

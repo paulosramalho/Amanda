@@ -1,0 +1,167 @@
+﻿# Skill — Agregar projeto ao Cockpit de Agentes
+
+Use esta skill ao **criar um projeto novo** ou ao **integrar um projeto existente** que tem schedulers/cron jobs Node.js e precisa ser monitorado pelo Cockpit.
+
+## Passo 1 — Perguntar antes de fazer qualquer coisa
+
+**Sempre pergunte primeiro** via `AskUserQuestion`:
+
+> "Este projeto deve ser monitorado pelo Cockpit de Agentes?"
+>
+> Opções:
+> - **Sim, integrar agora** — segue para o passo 2
+> - **Não, ignorar** — encerra a skill sem mudanças
+
+Justificativa: nem todo projeto entra no cockpit. SPAs estáticos (ex: Davi), scripts CLI one-shot, libs sem schedulers, projetos descontinuados — todos ficam de fora. **Nunca presuma que o usuário quer integrar.**
+
+Se a resposta for "Não", responda em uma linha confirmando ("Ok, projeto não será integrado ao cockpit.") e encerre.
+
+## Passo 2 — Identificar o projeto-alvo
+
+- Caminho-alvo: `$ARGUMENTS` se fornecido, senão `cwd`.
+- Verificar se existe `<projeto>/backend/package.json`. Se não, perguntar onde está o backend (alguns projetos têm raiz diferente).
+- Detectar se é ESM (`"type": "module"` no package.json) ou CommonJS — escolhe a versão certa do reporter.
+
+## Passo 3 — Detectar schedulers
+
+Buscar no diretório do backend por padrões de schedulers:
+
+- Arquivos em: `src/schedulers/`, `src/jobs/`, `src/workers/`, `src/cron/`
+- Conteúdo: `setInterval`, `node-cron`, `cron.schedule`, função exportada começando com `start*Scheduler`
+- Mapear:
+  - **Nome técnico** (ex: `vencimentos`) — derivar do nome do arquivo ou da função
+  - **Frequência** — extrair se houver expressão cron literal, OU intervalo em ms (transformar em `interval:<ms>`)
+  - **Descrição** — primeira linha de comentário ou JSDoc, se houver
+
+Se for um projeto novo (sem schedulers ainda), pular essa detecção e seguir para o passo 4 com lista vazia (será preenchida depois conforme schedulers forem criados).
+
+Apresentar a lista detectada ao usuário (multiselect via `AskUserQuestion` se ≤4 itens; senão lista textual com confirmação) e pedir para confirmar quais agentes devem ser registrados.
+
+## Passo 4 — Criar Project no cockpit
+
+Pré-requisitos:
+- O usuário precisa ter o **token de admin do cockpit** salvo localmente (variável de ambiente `COCKPIT_ADMIN_TOKEN`) OU fornecer agora.
+- A `COCKPIT_URL` está em `~/.claude/cockpit-config` (criar se não existir).
+
+Se ainda não houver `COCKPIT_URL` configurada, perguntar e salvar. Se ainda não houver token admin, perguntar e armazenar como variável de sessão (não persistir senha em texto).
+
+Chamar:
+
+```
+POST {COCKPIT_URL}/api/projects
+Authorization: Bearer {COCKPIT_ADMIN_TOKEN}
+Content-Type: application/json
+
+{ "name": "<nome>", "slug": "<slug>", "color": "#3b82f6" }
+```
+
+Capturar `apiToken` da resposta. **Mostrar uma única vez ao usuário** com a instrução de configurá-lo no Render.
+
+## Passo 5 — Copiar a lib reporter
+
+- Origem: `C:\cockpit-agentes\lib\agentReporter.js` (ESM) ou `agentReporter.cjs` (CommonJS)
+- Destino: `<projeto>/backend/src/lib/agentReporter.{js,cjs}` — preserva nome de extensão.
+
+Se já existir, perguntar se sobrescreve (default: sim, para manter atualizado).
+
+## Passo 6 — Configurar ENV
+
+Adicionar ao `.env.example` do backend:
+
+```
+# Cockpit de Agentes
+COCKPIT_URL=
+COCKPIT_PROJECT_TOKEN=
+COCKPIT_PROJECT_SLUG=<slug>
+```
+
+E ao `render.yaml` do projeto (ou equivalente), com `sync: false` para os secrets:
+
+```yaml
+- key: COCKPIT_URL
+  value: https://cockpit-agentes.onrender.com
+- key: COCKPIT_PROJECT_TOKEN
+  sync: false
+- key: COCKPIT_PROJECT_SLUG
+  value: <slug>
+```
+
+Avisar o usuário que precisa setar o `COCKPIT_PROJECT_TOKEN` real no painel do Render.
+
+## Passo 7 — Registrar agentes no boot
+
+Localizar onde os schedulers são iniciados no `server.js` (geralmente um bloco com várias chamadas `start*Scheduler()`). Inserir, **antes** desse bloco:
+
+```js
+import { createReporter } from "./lib/agentReporter.js";
+
+const reporter = createReporter({ projectSlug: "<slug>" });
+
+await reporter.registerAgents([
+  { name: "<nome>", label: "<label>", schedule: "<schedule>", scheduleType: "<cron|interval>", description: "<desc>" },
+  // ...
+]);
+```
+
+Para CommonJS, adaptar o import.
+
+Exportar `reporter` se necessário, ou deixar em escopo de módulo.
+
+## Passo 8 — Envolver cada scheduler
+
+Para cada agente que o usuário confirmou, abrir o arquivo do scheduler e envolver a chamada interna em `reporter.run`:
+
+**Antes:**
+```js
+async function tick() {
+  try {
+    await fazerOTrabalho();
+  } catch (e) {
+    console.error("..." , e);
+  }
+}
+```
+
+**Depois:**
+```js
+async function tick() {
+  try {
+    await reporter.run("<nome>", () => fazerOTrabalho());
+  } catch {
+    // erro já reportado ao cockpit
+  }
+}
+```
+
+Mostrar o diff de cada alteração antes de aplicar quando possível (Edit tool).
+
+## Passo 9 — Validação
+
+- Rodar a skill `check-padroes` no backend modificado.
+- Recomendar ao usuário: `npm install` no backend (sem novas deps — o reporter usa só `fetch` nativo).
+- Lembrar de configurar `COCKPIT_PROJECT_TOKEN` no Render antes do próximo deploy.
+
+## Passo 10 — Commit + push
+
+Seguindo CLAUDE.md global:
+
+```
+chore(cockpit): integrar <slug> ao cockpit-agentes
+```
+
+Push para o remote.
+
+## Resumo final ao usuário
+
+Ao concluir, retorne em até 5 linhas:
+- Project criado no cockpit (slug + token mostrado uma vez)
+- N agentes registrados
+- Arquivos modificados (lista curta)
+- Próximo passo: configurar `COCKPIT_PROJECT_TOKEN` no Render do projeto e fazer deploy
+
+## Restrições
+
+- **NUNCA persista o token admin do cockpit em arquivos do projeto.**
+- Se o backend do projeto não tem schedulers, ainda assim pode integrar (o cockpit aceita projetos sem agentes registrados); apenas avise o usuário e pule o passo 8.
+- Se a `COCKPIT_URL` está offline, criar o Project pode falhar — informar e oferecer retry.
+- O reporter falha silenciosamente em runtime (por design); não adicione tratamento que derrube o agente se o cockpit estiver fora.

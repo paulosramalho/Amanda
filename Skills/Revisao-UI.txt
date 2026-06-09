@@ -1,0 +1,136 @@
+﻿# Auditoria de Padrões UI
+
+Varra o(s) arquivo(s) indicado(s) em `$ARGUMENTS` e liste todas as violações dos padrões definidos em `~/.claude/CLAUDE.md`.
+
+## Checklist de violações a procurar
+
+### 1. alert/confirm nativos — NUNCA usar
+```
+Buscar: alert( | confirm( | window.alert | window.confirm | window.prompt
+Correto: addToast(..., "error") para validação | confirmToast(...) para confirmação | ConfirmModal para ações destrutivas
+```
+
+### 2. Datas enviadas ao backend sem T12:00:00Z
+```
+Buscar: form.data + envio direto (sem + "T12:00:00Z") | new Date(form.algumaData) sem sufixo
+Contexto: <input type="date"> retorna "YYYY-MM-DD" — deve virar "YYYY-MM-DDT12:00:00Z" antes de enviar
+Correto: form.dataQualquer + "T12:00:00Z" | form.dataOpcional ? form.dataOpcional + "T12:00:00Z" : null
+Não é violação: T12:00:00 no lado da EXIBIÇÃO (parsing de datas recebidas do backend) — isso é correto
+```
+
+### 3. Formatação de moeda sem brlFromCentavos
+```
+Buscar: .toLocaleString("pt-BR", { style: "currency" }) | (valor / 100).toFixed(2) | R$ ${...toFixed}
+Não é violação: percentuais/basis-points com toFixed(2) | formatadores de INPUT (maskBRL, maskMoney) | PDF exports
+Correto: brlFromCentavos(valorEmCentavos) | formatBRLFromDecimal(valorEmReais) — importar de ../lib/formatters
+```
+
+### 4. Campos monetários sem MoneyInput
+```
+Buscar: <input type="text"> ou <input type="number"> em campos de valor monetário
+Correto: <MoneyInput value={centavos} onChange={setCentavos} /> — importar de ../components/ui/MoneyInput
+Não aplicável: campos de percentual, campos numéricos não-monetários
+```
+
+### 5. Formatação de data de exibição sem fmtDate
+```
+Buscar: new Date(x).toLocaleDateString | .toLocaleString sem timeZone explícito
+Correto: fmtDate(x) de ../lib/formatters | toLocaleString com timeZone: "America/Belem"
+Não é violação: toLocaleString com timeZone explícito já definido
+```
+
+### 6. Ausência de Liquid Glass + sombra 3D em superfícies de destaque
+
+**Princípio: o efeito é cosmético, para chamar atenção em superfícies de destaque. Cada app tem sua cara — adaptar, não copiar.** A receita do Cockpit é referência conceitual, não template a aplicar literalmente.
+
+Conceitualmente, o efeito sempre tem 3 ingredientes:
+1. **Glass**: backdrop-filter `blur` + `saturate` sobre um gradient sutil — borra o que está atrás dando ideia de "vidro fosco".
+2. **Sombra 3D em camadas**: combinação de inset highlight + drop shadow + glow no hover, criando profundidade.
+3. **Borda/ring sutil**: `ring-1` com cor coerente com o tema do app (clara em tema escuro, escura em tema claro).
+
+#### Adaptação por tema do app
+
+**Tema escuro (ex: cockpit-agentes)** — Glass dá efeito forte:
+```css
+.glass-strong { background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); backdrop-filter: blur(32px) saturate(180%); }
+.shadow-3d { box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 -1px 0 rgba(0,0,0,0.3) inset, 0 12px 32px -8px rgba(0,0,0,0.5); }
+ring-1 ring-white/10
+```
+
+**Tema claro (ex: AMR)** — receita "light" preserva legibilidade:
+```css
+.glass-light { background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.7)); backdrop-filter: blur(20px) saturate(140%); }
+.shadow-3d-light { box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 1px 2px rgba(15,23,42,0.05), 0 12px 24px -10px rgba(15,23,42,0.15); }
+.shadow-3d-light-hover:hover { box-shadow: 0 1px 0 rgba(255,255,255,0.95) inset, 0 20px 40px -16px rgba(30,64,175,0.25); transform: translateY(-2px); }
+ring-1 ring-slate-200/60
+```
+
+**Tema híbrido/midtone**: ajustar opacidades intermediárias + sombra com accent da cor primária do app.
+
+#### Quando aplicar
+
+- StatCards / KPIs em dashboards
+- Cards de listagem em grid (1 entidade = 1 card)
+- Headers principais sticky
+- Modais primários (info principal — não confirmações simples)
+- Hero sections, telas de visão geral
+
+#### NÃO aplicar
+
+- Tabelas densas
+- Inputs / formulários internos
+- Badges, tags, botões pequenos
+- Células de tabela
+- Páginas de documentos / PDFs / impressão
+- Itens em sublistas
+
+#### Pré-requisito de execução
+
+Verificar se as utilities existem em `frontend/src/index.css` do projeto. Se não, **adaptar uma variante apropriada ao tema atual** do app (não copiar a do cockpit literalmente). A receita acima são pontos de partida — ajustar opacidades, accent colors e blur conforme a paleta do projeto.
+
+Se o app tem cor primária forte (ex: AMR usa azul `#1e40af`), o glow de hover pode usar essa cor para reforço de identidade.
+
+### 7. Modais sem header/footer fixos
+
+Modais com conteúdo grande (formulário, listagem, detalhes longos) devem ter estrutura **header fixo + body rolável + footer fixo**. Sem isso, em telas pequenas o conteúdo extrapola e botões de ação (Cancelar/Confirmar) ficam fora da área visível.
+
+```
+Buscar: <div ... maxHeight: "90vh", overflowY: "auto", padding: 24>
+        contendo titulo + campos + botoes acao tudo no mesmo bloco rolavel.
+
+Correto: container com flex column + 3 zonas:
+  <div maxHeight: "90vh", display: "flex", flexDirection: "column">
+    <div flexShrink: 0 ...>{header com titulo}</div>
+    <div flex: 1, overflowY: "auto" ...>{body com campos}</div>
+    <div flexShrink: 0 ...>{footer com botoes}</div>
+  </div>
+```
+
+Aplicar em: modais de formulário (Emitir Boleto, Enviar Pix, Devolver Pix), modais de detalhes (Detalhes do Boleto, callback webhook), modais de seleção (Vincular Pix recebido).
+
+NÃO aplicar em: confirmações simples (uma linha de texto + 2 botões — não vai extrapolar), Toasts.
+
+### 8. Toast z-index abaixo de modais
+
+```
+Buscar: ToastContainer ou container de Toast com z-50 ou z-[1000]
+Problema: confirmToast aberto a partir de dentro de modal fica atras
+Correto: ToastContainer com z-[10000] (ou maior que qualquer modal do projeto)
+```
+
+## Formato do relatório
+
+Para cada violação encontrada, reportar:
+```
+[TIPO] arquivo.jsx:linha
+  Encontrado: <código problemático>
+  Correto:    <código correto>
+```
+
+Se não houver violações: "✅ Arquivo em conformidade com os padrões UI."
+
+## Se $ARGUMENTS = "all"
+
+Varrer recursivamente `frontend/src/pages/` e `frontend/src/components/` usando as buscas acima.
+Agrupar por tipo de violação.
+Reportar total: "X violações em Y arquivos."

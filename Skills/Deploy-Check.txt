@@ -1,0 +1,73 @@
+﻿# Checklist de Deploy
+
+Execute cada verificação abaixo no projeto atual e reporte o resultado de cada item.
+
+## 1. Migrations Prisma
+
+```bash
+cd backend && npx prisma migrate status
+```
+
+- Se aparecer "Database schema is up to date" → OK
+- Se aparecer migrations pendentes → **BLOQUEANTE**: rodar `npx prisma migrate deploy` antes do deploy
+
+## 2. Env vars obrigatórias
+
+Ler o arquivo `backend/.env` (ou `.env.example`) e verificar se todas as variáveis sem valor default estão definidas.
+
+Variáveis críticas que nunca podem estar vazias em produção:
+- `DATABASE_URL` e `DIRECT_URL` (Neon)
+- `JWT_SECRET`
+- `PORT` (Render define automaticamente — não bloquear se ausente localmente)
+
+Verificar também se `frontend/.env` ou `frontend/.env.production` tem `VITE_API_URL` apontando para a URL do Render (não para localhost).
+
+## 3. Build do frontend
+
+```bash
+cd frontend && npm run build
+```
+
+- Erros de TypeScript/JSX → **BLOQUEANTE**: corrigir antes do deploy
+- Apenas warnings → reportar mas não bloquear
+
+## 4. Problemas comuns no código
+
+Buscar os seguintes padrões no backend que indicam código de debug esquecido:
+
+```bash
+grep -r "console\.log" backend/src --include="*.js" -l
+```
+
+- `console.log` em rotas de produção → avisar (não bloquear, mas recomendar remoção)
+- `console.error` está OK (logging de erros é intencional)
+
+Buscar no frontend:
+
+```bash
+grep -r "localhost" frontend/src --include="*.jsx" --include="*.js" -l
+```
+
+- URL hardcoded de localhost → **BLOQUEANTE**: deve usar `import.meta.env.VITE_API_URL`
+
+## 5. Dependências
+
+```bash
+cd backend && npm audit --audit-level=high 2>/dev/null | tail -5
+cd frontend && npm audit --audit-level=high 2>/dev/null | tail -5
+```
+
+- Vulnerabilidades `high` ou `critical` → avisar com contagem
+
+## Formato do relatório final
+
+```
+✅ Migrations: sem pendências
+✅ Env vars: todas configuradas
+❌ Frontend build: erro em src/pages/Foo.jsx:42 — ...
+✅ Sem localhost hardcoded
+⚠️  3 console.log em backend/src/routes/bar.js
+```
+
+Se tudo OK: "Projeto pronto para deploy."
+Se houver bloqueante: listar os itens ❌ e não declarar o projeto pronto.

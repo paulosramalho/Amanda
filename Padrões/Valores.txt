@@ -1,0 +1,20 @@
+﻿# Padrão: Valores Monetários
+
+## Exibição
+- Formato: 1.234,56 — ponto como separador de milhar, vírgula como decimal (pt-BR).
+- Nunca exibir $, USD ou formato americano em telas voltadas ao usuário.
+
+## Entrada
+- Comportamento de calculadora: dígitos entram pela direita, deslocando a vírgula.
+  1 → 0,01 | 123 → 1,23 | 123456 → 1.234,56
+- Internamente: valor sempre em centavos (inteiro). A formatação é exclusivamente na camada de UI.
+
+## Componente
+- Usar o componente MoneyInput do projeto quando disponível.
+  - AMR/Portal: frontend/src/components/ui/MoneyInput.jsx
+  - Addere: frontend/src/components/ui/MoneyInput.jsx
+- value/onChange em centavos — nunca reimplementar este comportamento.
+
+## Formatters (frontend)
+- brlFromCentavos / centsToBRL de frontend/src/lib/formatters.js
+- Nunca redefinir localmente.

@@ -1,0 +1,23 @@
+﻿# Padrão: Código — Princípios Gerais
+
+## O que NÃO fazer
+- Não adicionar comentários, docstrings ou type annotations em código não modificado.
+- Não criar helpers/abstrações para uso único — três linhas similares não justificam extração.
+- Não adicionar error handling para cenários impossíveis — confiar nas garantias do framework.
+- Não adicionar features, refatorações ou "melhorias" além do que foi pedido.
+- Não adicionar validação para cenários impossíveis; só validar em boundaries do sistema.
+- Não usar feature flags ou shims de compatibilidade quando se pode mudar o código.
+
+## Comentários
+- Padrão: nenhum comentário.
+- Exceção: quando o WHY é não-óbvio (restrição oculta, workaround para bug específico).
+- Nunca descrever O QUE o código faz — nomes bons já fazem isso.
+- Nunca referenciar a tarefa, fix ou caller — pertencem ao PR description.
+
+## Segurança
+- Nunca introduzir SQL injection, XSS, command injection ou expor secrets em logs.
+- Validar apenas em system boundaries (input do usuário, APIs externas).
+
+## Tailwind (projetos React)
+- Cores da marca: bg-primary, hover:bg-primary-hover
+- Nunca: bg-navy-700 ou variantes hardcoded.

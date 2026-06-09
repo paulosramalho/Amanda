@@ -1,0 +1,48 @@
+﻿# Skills Disponíveis — ~/.claude/skills/
+
+## Quando usar cada skill
+
+agregar-cockpit
+  Integra projeto Node.js ao Cockpit de Agentes.
+  Usar: ao criar projeto novo que precise de monitoramento.
+
+alerta-compactacao
+  Salva estado da sessão antes de perda de contexto.
+  Usar: proativamente quando sessão tem 30+ tool calls, 10+ arquivos lidos, ou bloco Summary presente.
+
+auditoria-seguranca
+  Auditoria full-stack (Node.js/Express + React). Identifica VULNs HIGH/MEDIUM (confiança >0.80).
+  Produz relatório + plano de ação + evento na agenda.
+  Usar: projeto novo, feature com superfície de ataque (bot, webhook, upload, auth), ~30 dias.
+
+check-padroes
+  Audita arquivos backend contra os padrões globais do CLAUDE.md.
+  Usar: ao concluir trabalho em rota Express, lib ou scheduler.
+
+deploy-check
+  Valida projeto antes de subir para produção (Render + Vercel).
+  Usar: antes de qualquer deploy.
+
+finish
+  Ritual de fechamento: check-padroes + revisao-ui + docs + commit + push.
+  Usar: quando usuário sinalizar conclusão ("tudo certo", "documentar", "fechar", "concluir").
+
+nova-migration
+  Scaffold e aplica migration Prisma.
+  Usar: ao adicionar/modificar campo ou modelo no banco.
+
+nova-pagina
+  Scaffold completo de nova página React.
+  Usar: ao criar nova tela/página.
+
+nova-rota
+  Scaffold de rota Express.
+  Usar: ao criar novo endpoint.
+
+novo-componente
+  Scaffold de componente React reutilizável.
+  Usar: ao criar componente de UI compartilhado.
+
+revisao-ui
+  Audita arquivo .jsx contra padrões UI (alert nativo, datas, moeda, MoneyInput).
+  Usar: ao concluir trabalho em página ou componente frontend.

@@ -1,0 +1,74 @@
+﻿# Auditoria de Padrões — Backend
+
+Varra o(s) arquivo(s) em `$ARGUMENTS` e liste todas as violações dos padrões definidos em `~/.claude/CLAUDE.md`.
+
+## Checklist de violações a procurar
+
+### 1. Valores monetários como Float ou Decimal
+```
+Buscar: parseFloat( | Number(req.body.valor) sem * 100 | .toFixed(2) em campos de valor
+Problema: backend deve armazenar e operar valores monetários em centavos (Int)
+Correto: Math.round(Number(valor) * 100) ao receber do frontend | sempre Int no Prisma
+Não é violação: percentuais, taxas, alíquotas — esses podem ser Float
+```
+
+### 2. Datas recebidas sem T12:00:00Z
+```
+Buscar: new Date(req.body.data) | new Date(req.body.dataInicio) sem verificar sufixo
+Problema: frontend envia "YYYY-MM-DD" — sem sufixo vira meia-noite UTC = dia anterior em BRT
+Correto: new Date(dataStr + (dataStr.includes("T") ? "" : "T12:00:00Z"))
+Não é violação: datas que já vêm com T12:00:00Z do frontend corretamente
+```
+
+### 3. Datas formatadas para resposta sem timeZone
+```
+Buscar: .toLocaleDateString() | .toLocaleString() sem timeZone explícito em respostas de API
+Correto: .toLocaleString("pt-BR", { timeZone: "America/Belem" })
+```
+
+### 4. Secrets ou credenciais hardcoded
+```
+Buscar: strings que parecem JWT secrets, API keys, senhas, tokens hardcoded no código
+Problema: credenciais devem vir de process.env
+Correto: process.env.NOME_DA_VAR
+```
+
+### 5. Rotas sem middleware de autenticação
+```
+Buscar: router.(get|post|put|delete)\( ou app.(get|post|put|delete)\( sem authenticate
+Contexto: rotas que manipulam dados do usuário ou são mutações devem ter authenticate
+Não é violação: rotas públicas explícitas (login, health check, webhooks externos)
+```
+
+### 6. Erros silenciados
+```
+Buscar: catch (e) {} | catch (e) { /* */ } | .catch(() => {}) em operações de banco
+Problema: erros swallowed escondem falhas silenciosamente
+Correto: pelo menos console.error ou res.status(500).json({ message: e.message })
+Não é violação: .catch(() => {}) em schedulers de verificação periódica (ex: setInterval)
+```
+
+### 7. SQL / Prisma raw queries com interpolação de string
+```
+Buscar: prisma.$queryRaw`...${variavel}` | prisma.$executeRaw`...${variavel}`
+Problema: interpolação direta é SQL injection
+Correto: usar Prisma.sql`` template tag ou parametrização
+Não é violação: prisma.$queryRaw com Prisma.sql`` (já parametrizado)
+```
+
+## Formato do relatório
+
+Para cada violação:
+```
+[TIPO] arquivo.js:linha
+  Encontrado: <código problemático>
+  Correto:    <código correto>
+```
+
+Se não houver violações: "✅ Arquivo em conformidade com os padrões de backend."
+
+## Se $ARGUMENTS = "all"
+
+Varrer recursivamente `backend/src/routes/`, `backend/src/lib/`, `backend/src/schedulers/` e `backend/src/jobs/`.
+Agrupar por tipo de violação.
+Reportar total: "X violações em Y arquivos."

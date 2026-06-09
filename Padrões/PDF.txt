@@ -1,0 +1,37 @@
+﻿# Padrão: Geração de PDFs — Python/ReportLab
+
+## Fonte obrigatória: Verdana
+- Fonte preferida: Verdana — usar sempre que possível.
+- Fallback: Arial.
+- NUNCA usar fontes padrão (Helvetica, Times-Roman, Courier) — não suportam ç, ã, é, —.
+
+## Registro obrigatório no início do script
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+pdfmetrics.registerFont(TTFont("Verdana",    r"C:\Windows\Fonts\verdana.ttf"))
+pdfmetrics.registerFont(TTFont("Verdana-B",  r"C:\Windows\Fonts\verdanab.ttf"))
+pdfmetrics.registerFont(TTFont("Verdana-I",  r"C:\Windows\Fonts\verdanai.ttf"))
+pdfmetrics.registerFont(TTFont("Verdana-BI", r"C:\Windows\Fonts\verdanaz.ttf"))
+pdfmetrics.registerFontFamily("Verdana", normal="Verdana", bold="Verdana-B",
+    italic="Verdana-I", boldItalic="Verdana-BI")
+
+## Encoding
+- Declarar # -*- coding: utf-8 -*- na linha 1.
+- Escrever acentos literalmente — nunca sequências de escape.
+
+## Estrutura obrigatória (cabeçalho + rodapé em TODAS as páginas)
+- Usar BaseDocTemplate + PageTemplate com callback onPage.
+- Logo centralizada ACIMA de qualquer texto — nunca ao lado de títulos.
+- Logo AMR: website/public/logo.png — largura ~7 cm em A4.
+- Linha HR separa cabeçalho do conteúdo e conteúdo do rodapé.
+- Rodapé: data/hora de geração à esquerda + "Página N" à direita, ambos em 7pt.
+- story contém só o conteúdo — cabeçalho e rodapé vivem exclusivamente no callback.
+- Preparar logo com Pillow + compositar sobre fundo branco (evita fundo transparente no PDF).
+
+## Destino dos PDFs gerados
+- AMR: C:\Controles-AMR\Depósito\
+- Addere: C:\Addere\Depósito\
+- Amanda: C:\Amanda\Depósito\
+
+## Script de referência
+- C:\Controles-AMR\Depósito\NFS-e\_gerar_checklist_nfse.py

@@ -1,0 +1,67 @@
+﻿# Scaffold — Nova Rota Backend Express
+
+Crie a rota `$1 $2` no arquivo de rotas adequado (se o projeto usa `server.js` monolítico, adicionar lá; se tem arquivo de rotas separado, adicionar no arquivo correto).
+
+## Estrutura obrigatória
+
+```javascript
+// $1 $2 — $3
+router.METHOD("$2", authenticate, async (req, res) => {
+  try {
+    // ── Validação de entrada ───────────────────────────────────────────────
+    const { campo1, campo2 } = req.body || {};
+    if (!campo1) return res.status(400).json({ message: "campo1 é obrigatório" });
+
+    // ── Lógica de negócio ─────────────────────────────────────────────────
+    const resultado = await prisma.MODELO.findMany({
+      where: { /* filtros */ },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // ── Auditoria (apenas para mutações: POST/PUT/DELETE) ─────────────────
+    // await logAuditoria({
+    //   usuarioId: req.user.id,
+    //   acao: "CRIAR_FORNECEDOR",
+    //   entidade: "Fornecedor",
+    //   entidadeId: resultado.id,
+    //   dadosAntes: null,
+    //   dadosDepois: resultado,
+    //   ip: req.ip,
+    // });
+
+    return res.json(resultado);
+  } catch (e) {
+    console.error("$2:", e.message);
+    return res.status(500).json({ message: e.message || "Erro interno" });
+  }
+});
+```
+
+## Checklist antes de implementar
+
+- [ ] Definir se requer `authenticate` (autenticado) e/ou `requireAdmin` (somente admin)
+- [ ] Definir o modelo Prisma — verificar campos reais no `schema.prisma`
+- [ ] Validar campos obrigatórios antes de qualquer operação no banco
+- [ ] Para POST/PUT/DELETE: chamar `logAuditoria` com campos `usuarioId, acao, entidade, entidadeId, dadosAntes, dadosDepois, ip`
+  - NÃO existe campo `detalhes` — usar `dadosAntes`/`dadosDepois`
+- [ ] Para operações financeiras: converter valores para centavos (Int) antes de salvar
+- [ ] Para datas: receber como string ISO, armazenar como `new Date(dateStr)` (garantir que frontend envia com `T12:00:00Z`)
+
+## Padrões de resposta
+
+| Situação | Status | Body |
+|----------|--------|------|
+| Sucesso GET | 200 | array ou objeto |
+| Sucesso POST criação | 201 | objeto criado |
+| Sucesso PUT/DELETE | 200 | objeto atualizado ou `{ ok: true }` |
+| Validação falhou | 400 | `{ message: "..." }` |
+| Não autenticado | 401 | (middleware cuida) |
+| Não autorizado | 403 | `{ message: "Acesso negado" }` |
+| Não encontrado | 404 | `{ message: "Não encontrado" }` |
+| Erro interno | 500 | `{ message: e.message }` |
+
+## Depois de criar a rota
+
+1. Se o projeto usa arquivo de rotas separado, registrá-lo no `server.js` ou `app.js`
+2. Testar com curl ou pelo frontend
+3. Commit + push

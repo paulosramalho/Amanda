@@ -1,0 +1,33 @@
+﻿# Padrão: Notificações e Confirmações
+
+## Regra absoluta
+- NUNCA usar alert(), confirm() ou prompt() nativos.
+- TODO feedback ao usuário passa por Toast.
+
+## Toast — tipos e uso
+- success (Verde): Operação concluída com sucesso
+- error (Vermelho): Falha, erro de API, validação bloqueante
+- warning (Âmbar): Alerta, dado incompleto, ação com consequência
+- info (Azul): Informação neutra, status, carregamento concluído
+
+## Hook de uso
+- useToast() de frontend/src/components/Toast.jsx
+- addToast(msg, type, duration) / await confirmToast(msg)
+
+## Confirmações destrutivas
+- Ações irreversíveis (excluir, cancelar, reverter): modal de confirmação, não toast.
+- O modal deve nomear o objeto afetado: "Excluir parcela #123?" — nunca genérico "Tem certeza?".
+
+## Estrutura obrigatória de modal
+- Container: display flex, flexDirection column, maxHeight 90vh
+- Header e footer: flexShrink 0 (fixos)
+- Body: flex 1, overflowY auto (rolável)
+- Sem isso, conteúdo extrapola a tela e botões ficam inacessíveis em telas pequenas.
+
+## Z-index
+- Toasts e ConfirmToast: z-[10000] ou superior aos modais (que usam 1000-1500).
+- Confirmação aberta dentro de modal não pode ficar atrás dele.
+
+## Erros de API
+- Exibir a mensagem retornada pelo backend (err.message ou data.message).
+- Fallback: mensagem genérica descritiva da ação — nunca silenciar o erro.

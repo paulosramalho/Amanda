@@ -1,0 +1,29 @@
+﻿# Padrão: Datas
+
+## Fuso Horário
+- Timezone: UTC-3 (America/Belem / America/Sao_Paulo)
+- Toda lógica de "hoje", "agora", schedulers e formatação de exibição considera UTC-3.
+- Backend Node.js: usar toLocaleString("en-US", { timeZone: "America/Belem" }) para derivar hora local.
+
+## Exibição
+- Formato obrigatório: DD/MM/AAAA
+- Nunca: MM/DD/YYYY, nunca YYYY-MM-DD visível ao usuário.
+
+## Entrada
+- Usar <input type="date"> nativo.
+- Calendário customizado só se o contexto exigir navegação complexa (ex.: agendamento multi-mês).
+
+## Data-only → datetime (ao enviar para o backend)
+- SEMPRE concatenar T12:00:00Z ao converter YYYY-MM-DD em ISO datetime.
+- Exemplo: const iso = form.data + "T12:00:00Z";
+- Por quê: midnight UTC = 21h do dia anterior em BRT. T12:00:00Z (meio-dia UTC = 09h BRT) garante
+  que a data armazenada nunca cruza para o dia anterior ou seguinte.
+- Aplicar em: todo campo type="date" antes de enviar à API ou salvar no banco.
+
+## Exibição de datetime do banco
+- Ao formatar para o usuário, sempre passar timeZone: "America/Belem" no toLocaleString.
+
+## Horas
+- Campos de agendamento e uso geral: HH:MM
+- Logs, timestamps e auditoria: HH:MM:SS
+- Input: três campos separados ou <input type="time"> — nunca texto livre.

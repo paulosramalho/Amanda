@@ -1,0 +1,208 @@
+﻿# Scaffold — Nova Página React
+
+Crie o arquivo `frontend/src/pages/$1.jsx` com o seguinte scaffold, adaptando ao contexto descrito em "$3":
+
+## Estrutura obrigatória
+
+```jsx
+import React, { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
+import { useToast } from "../components/Toast";
+import { brlFromCentavos, fmtDate } from "../lib/formatters";
+// import MoneyInput from "../components/ui/MoneyInput";   // se tiver campos monetários
+// import EmptyState from "../components/ui/EmptyState";   // se tiver estado vazio
+
+export default function $1({ user }) {
+  const { addToast, confirmToast } = useToast();
+  const isAdmin = String(user?.role || "").toUpperCase() === "ADMIN";
+
+  // ── Estado principal ──────────────────────────────────────────────────────
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editando, setEditando] = useState(null); // null = novo
+
+  // ── Filtros ───────────────────────────────────────────────────────────────
+  const [filtro, setFiltro] = useState("");
+
+  // ── Carregar dados ────────────────────────────────────────────────────────
+  useEffect(() => { carregar(); }, []);
+
+  async function carregar() {
+    setLoading(true);
+    try {
+      const data = await apiFetch("/ROTA_AQUI");
+      setItems(data);
+    } catch (e) {
+      addToast(e.message || "Erro ao carregar", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Salvar (criar / editar) ───────────────────────────────────────────────
+  async function salvar(form) {
+    try {
+      if (editando) {
+        await apiFetch(`/ROTA_AQUI/${editando.id}`, { method: "PUT", body: form });
+        addToast("Atualizado com sucesso.", "success");
+      } else {
+        await apiFetch("/ROTA_AQUI", { method: "POST", body: form });
+        addToast("Criado com sucesso.", "success");
+      }
+      setModalOpen(false);
+      setEditando(null);
+      carregar();
+    } catch (e) {
+      addToast(e.message || "Erro ao salvar", "error");
+    }
+  }
+
+  // ── Excluir ───────────────────────────────────────────────────────────────
+  async function excluir(item) {
+    if (!await confirmToast(`Excluir "${item.nome}"?`)) return;
+    try {
+      await apiFetch(`/ROTA_AQUI/${item.id}`, { method: "DELETE" });
+      addToast("Excluído.", "success");
+      carregar();
+    } catch (e) {
+      addToast(e.message || "Erro ao excluir", "error");
+    }
+  }
+
+  // ── Filtro local ──────────────────────────────────────────────────────────
+  const itemsFiltrados = items.filter(i =>
+    !filtro || i.nome?.toLowerCase().includes(filtro.toLowerCase())
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">$3</h1>
+        {isAdmin && (
+          <button
+            onClick={() => { setEditando(null); setModalOpen(true); }}
+            className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg text-sm font-medium"
+          >
+            + Novo
+          </button>
+        )}
+      </div>
+
+      {/* Filtro */}
+      <input
+        type="text"
+        placeholder="Buscar..."
+        value={filtro}
+        onChange={e => setFiltro(e.target.value)}
+        className="w-full max-w-sm border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:ring-2 focus:ring-blue-200"
+      />
+
+      {/* Tabela */}
+      {loading ? (
+        <div className="text-center py-12 text-slate-400">Carregando...</div>
+      ) : itemsFiltrados.length === 0 ? (
+        <div className="text-center py-12 text-slate-400">Nenhum registro encontrado.</div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-3 text-slate-600 font-medium">Nome</th>
+                {/* ... outras colunas ... */}
+                {isAdmin && <th className="px-4 py-3"></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {itemsFiltrados.map(item => (
+                <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 text-slate-800">{item.nome}</td>
+                  {/* ... outras células ... */}
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-right space-x-2">
+                      <button
+                        onClick={() => { setEditando(item); setModalOpen(true); }}
+                        className="text-blue-600 hover:underline text-xs"
+                      >Editar</button>
+                      <button
+                        onClick={() => excluir(item)}
+                        className="text-red-500 hover:underline text-xs"
+                      >Excluir</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal criar/editar */}
+      {modalOpen && (
+        <Modal
+          titulo={editando ? "Editar" : "Novo"}
+          inicial={editando}
+          onSave={salvar}
+          onClose={() => { setModalOpen(false); setEditando(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function Modal({ titulo, inicial, onSave, onClose }) {
+  const [form, setForm] = useState({ nome: "", ...inicial });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.nome.trim()) return; // validação mínima — adicionar mais conforme campos
+    onSave(form);
+  }
+
+  const overlay = { position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center" };
+  const box = { background:"#fff",borderRadius:12,padding:"24px 28px",width:"min(480px,95vw)",boxShadow:"0 8px 40px rgba(0,0,0,0.18)" };
+
+  return (
+    <div style={overlay} onClick={e => e.target===e.currentTarget && onClose()}>
+      <div style={box}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-800">{titulo}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+        </div>
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nome *</label>
+            <input
+              type="text"
+              value={form.nome}
+              onChange={e => set("nome", e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              required
+            />
+          </div>
+          {/* ... outros campos ... */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+```
+
+## Depois de criar o arquivo
+
+1. Registrar a rota em `frontend/src/App.jsx`:
+   - Adicionar import lazy: `const $1 = lazy(() => import("./pages/$1"));`
+   - Adicionar `<Route path="$2" element={<$1 user={user} />} />` dentro do `<Routes>`
+   - Adicionar item de navegação no array `navItems` conforme o grupo adequado
+
+2. Atualizar `MEMORY.md` — adicionar `$2` na lista de rotas do frontend
+
+3. Commit + push

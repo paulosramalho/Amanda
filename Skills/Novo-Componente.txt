@@ -1,0 +1,59 @@
+﻿# Scaffold — Novo Componente React
+
+Crie o arquivo no diretório de componentes do projeto:
+- Controles-AMR: `frontend/src/components/ui/$1.jsx`
+- Portal-pessoal: `frontend/src/components/$1.jsx`
+- Amanda: `frontend/src/components/$1.jsx`
+
+## Estrutura obrigatória
+
+```jsx
+import { useState } from "react";
+
+/**
+ * $1 — $2
+ *
+ * Props:
+ *   propA  {tipo}   descrição
+ *   propB  {tipo}   descrição
+ */
+export default function $1({ propA, propB, className = "" }) {
+  // estado interno apenas se necessário
+
+  return (
+    <div className={`/* classes base */ ${className}`}>
+      {/* conteúdo */}
+    </div>
+  );
+}
+```
+
+## Regras de estilo (Tailwind)
+
+- Cores da marca: `bg-primary`, `hover:bg-primary-hover` — nunca `bg-navy-*` ou hex hardcoded
+- Bordas: `border border-slate-200` (neutro) ou `border-slate-300` (input)
+- Texto: `text-slate-800` (principal), `text-slate-500` (secundário), `text-slate-400` (placeholder)
+- Foco: `focus:outline-none focus:ring-2 focus:ring-primary/30`
+- Arredondamento: `rounded-lg` (padrão), `rounded-xl` (cards), `rounded-full` (badges/pills)
+- Sombra: `shadow-sm` (cards), sem sombra em inputs
+
+## Quando usar componentes existentes dentro do novo
+
+| Necessidade | Componente |
+|---|---|
+| Campo de valor monetário | `MoneyInput` de `../ui/MoneyInput` (ou `../../components/ui/MoneyInput`) |
+| Feedback ao usuário | `useToast()` de `../components/Toast` |
+| Estado vazio | `EmptyState` de `../ui/EmptyState` |
+| Input de data | `<input type="date">` nativo — nunca calendário custom |
+
+## Regras absolutas
+
+- Nunca `alert()`, `confirm()` ou `prompt()` — usar Toast/modal
+- Nunca `type="number"` em campos de valor monetário — usar `MoneyInput`
+- Exportar apenas `default` (sem named exports adicionais, a menos que sejam sub-componentes auxiliares usados apenas neste arquivo)
+- Aceitar `className` como prop para permitir sobrescrever espaçamento externo
+
+## Depois de criar
+
+1. Importar na página ou componente que vai usar: `import $1 from "../components/ui/$1";`
+2. Commit + push

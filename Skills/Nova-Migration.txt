@@ -1,0 +1,67 @@
+﻿# Scaffold — Nova Migration Prisma
+
+Aplique a mudança descrita em `$ARGUMENTS` no banco de dados do projeto atual.
+
+## Passo 1 — Localizar o schema
+
+Leia `backend/prisma/schema.prisma` e identifique o modelo afetado (ou onde o novo modelo deve ser inserido).
+
+## Passo 2 — Editar o schema.prisma
+
+### Novo campo em modelo existente
+```prisma
+model NomeModelo {
+  // ... campos existentes ...
+  novoCampo   TipoPrisma   @default(valor)   // obrigatório
+  // ou
+  novoCampo   TipoPrisma?                    // opcional (nullable)
+}
+```
+
+### Novo modelo completo
+```prisma
+model NomeModelo {
+  id          Int       @id @default(autoincrement())
+  // campos do domínio
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("NomeModelo")
+}
+```
+
+### Regras obrigatórias ao editar o schema
+- Campos monetários: sempre `Int` (centavos), nunca `Float` ou `Decimal`
+- Datas de domínio (não audit): `DateTime` sem default, nullable se opcional
+- Relacionamentos: adicionar `@relation` nos dois lados do modelo
+- Novos campos NOT NULL em tabelas existentes: exigem `@default(...)` ou migração em dois passos
+- Nunca remover campos sem confirmar com o usuário — pode haver dados
+
+## Passo 3 — Gerar e aplicar a migration
+
+```bash
+cd backend
+npx prisma migrate dev --name <nome-descritivo-em-kebab-case>
+```
+
+Exemplos de nome: `add-ativo-to-cliente`, `create-modelo-pagamento`, `alter-valor-para-centavos`
+
+## Passo 4 — Verificar se seed precisa atualizar
+
+Se o campo adicionado for NOT NULL e o arquivo `backend/prisma/seed.js` existir, verificar se os registros seed precisam do novo campo.
+
+## Passo 5 — Verificar rotas impactadas
+
+Se foi adicionado/removido campo, buscar onde o modelo é usado nas rotas:
+```bash
+grep -r "NomeModelo\|nomeModelo" backend/src/routes/ --include="*.js" -l
+```
+Atualizar os `select`, `create`, `update` do Prisma nestas rotas se necessário.
+
+## Checklist final
+
+- [ ] `schema.prisma` atualizado corretamente
+- [ ] Migration aplicada sem erros (`npx prisma migrate dev`)
+- [ ] Seed atualizado se necessário
+- [ ] Rotas impactadas revisadas
+- [ ] Commit + push
