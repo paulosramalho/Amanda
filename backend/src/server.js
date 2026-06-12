@@ -30,6 +30,7 @@ import {
   stopPostPublisherScheduler,
   runPostPublisherTick,
   publishNow,
+  invalidatePostPublisherCache,
 } from "./jobs/postPublisherScheduler.js";
 import { sendAdminAlert } from "./lib/adminNotify.js";
 import { sendInstagramAnalysisEmail, getTokenDaysUsed } from "./lib/instagramNotify.js";
@@ -911,6 +912,7 @@ app.post("/api/scheduled-posts", requireAuth, async (req, res) => {
         status: status === "DRAFT" ? "DRAFT" : "SCHEDULED",
       },
     });
+    invalidatePostPublisherCache();
     res.status(201).json({ ok: true, post });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
@@ -933,6 +935,7 @@ app.put("/api/scheduled-posts/:id", requireAuth, async (req, res) => {
     if (firstComment !== undefined) data.firstComment = firstComment || null;
     if (status !== undefined && ["DRAFT", "SCHEDULED"].includes(status)) data.status = status;
     const post = await prisma.scheduledPost.update({ where: { id: req.params.id }, data });
+    invalidatePostPublisherCache();
     res.json({ ok: true, post });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });
@@ -945,6 +948,7 @@ app.delete("/api/scheduled-posts/:id", requireAuth, async (req, res) => {
       where: { id: req.params.id },
       data: { status: "CANCELLED" },
     });
+    invalidatePostPublisherCache();
     res.json({ ok: true, post });
   } catch (error) {
     res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "unknown error" });

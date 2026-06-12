@@ -250,22 +250,36 @@ async function publishOne(post) {
   }
 }
 
+// Cache em memória do próximo agendamento — evita tocar o banco a cada tick
+// (Neon scale-to-zero: qualquer query < 5min de intervalo mantém o compute ligado).
+// undefined = desconhecido (re-seed com 1 query no próximo tick); null = nada agendado.
+let nextDueAtMs;
+
+export function invalidatePostPublisherCache() {
+  nextDueAtMs = undefined;
+}
+
 export async function runPostPublisherTick({ now = new Date(), triggeredBy = "scheduler" } = {}) {
   if (state.busy) return { skipped: true, reason: "already running" };
+
+  if (!toBoolean(process.env.IG_PUBLISH_ENABLED, false)) {
+    return { skipped: true, reason: "IG_PUBLISH_ENABLED is false" };
+  }
+
   state.busy = true;
-
-  const job = await prisma.jobExecution.create({
-    data: { jobName: "post_publisher", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
-  });
-
   try {
-    if (!toBoolean(process.env.IG_PUBLISH_ENABLED, false)) {
-      const result = { skipped: true, reason: "IG_PUBLISH_ENABLED is false" };
-      await prisma.jobExecution.update({
-        where: { id: job.id },
-        data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, ...result } },
-      });
-      return result;
+    if (triggeredBy === "scheduler") {
+      if (nextDueAtMs === undefined) {
+        const next = await prisma.scheduledPost.findFirst({
+          where: { status: "SCHEDULED" },
+          orderBy: { scheduledFor: "asc" },
+          select: { scheduledFor: true },
+        });
+        nextDueAtMs = next ? next.scheduledFor.getTime() : null;
+      }
+      if (nextDueAtMs === null || now.getTime() < nextDueAtMs) {
+        return { skipped: true, reason: "nenhum post due (cache em memória)" };
+      }
     }
 
     const due = await prisma.scheduledPost.findMany({
@@ -275,37 +289,42 @@ export async function runPostPublisherTick({ now = new Date(), triggeredBy = "sc
     });
 
     if (!due.length) {
-      const result = { processed: 0, dueCount: 0 };
-      await prisma.jobExecution.update({
-        where: { id: job.id },
-        data: { status: "SUCCESS", finishedAt: new Date(), details: { trigger: triggeredBy, ...result } },
-      });
-      return result;
+      nextDueAtMs = undefined;
+      return { processed: 0, dueCount: 0 };
     }
 
-    const results = [];
-    for (const post of due) results.push(await publishOne(post));
-    const success = results.filter((r) => r.ok).length;
-    const failed = results.length - success;
-    const result = { processed: results.length, success, failed };
-
-    await prisma.jobExecution.update({
-      where: { id: job.id },
-      data: {
-        status: failed > 0 ? "FAILED" : "SUCCESS",
-        finishedAt: new Date(),
-        details: { trigger: triggeredBy, ...result, results },
-        errorMessage: failed > 0 ? `${failed} de ${results.length} falharam` : null,
-      },
+    const job = await prisma.jobExecution.create({
+      data: { jobName: "post_publisher", status: "RUNNING", attempt: 1, startedAt: new Date(), details: { trigger: triggeredBy } },
     });
 
-    return result;
-  } catch (e) {
-    await prisma.jobExecution.update({
-      where: { id: job.id },
-      data: { status: "FAILED", finishedAt: new Date(), errorMessage: e.message?.slice(0, 500) || "unknown error" },
-    });
-    throw e;
+    try {
+      const results = [];
+      for (const post of due) results.push(await publishOne(post));
+      const success = results.filter((r) => r.ok).length;
+      const failed = results.length - success;
+      const result = { processed: results.length, success, failed };
+
+      await prisma.jobExecution.update({
+        where: { id: job.id },
+        data: {
+          status: failed > 0 ? "FAILED" : "SUCCESS",
+          finishedAt: new Date(),
+          details: { trigger: triggeredBy, ...result, results },
+          errorMessage: failed > 0 ? `${failed} de ${results.length} falharam` : null,
+        },
+      });
+
+      return result;
+    } catch (e) {
+      await prisma.jobExecution.update({
+        where: { id: job.id },
+        data: { status: "FAILED", finishedAt: new Date(), errorMessage: e.message?.slice(0, 500) || "unknown error" },
+      });
+      throw e;
+    } finally {
+      // posts que falharam voltam a SCHEDULED — re-seed no próximo tick
+      nextDueAtMs = undefined;
+    }
   } finally {
     state.busy = false;
   }
@@ -321,7 +340,12 @@ export async function publishNow(postId) {
     where: { id: postId },
     data: { retryCount: 0, errorMessage: null },
   });
-  return publishOne({ ...post, retryCount: 0 });
+  try {
+    return await publishOne({ ...post, retryCount: 0 });
+  } finally {
+    // falha devolve o post a SCHEDULED (due imediato) — cache precisa re-seed
+    invalidatePostPublisherCache();
+  }
 }
 
 export function startPostPublisherScheduler() {
